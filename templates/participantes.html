@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Gestión de Participantes</h2>
+
+<a href="{{ url_for('nuevo_participante') }}" class="btn">Nuevo Participante</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>CI</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Email</th>
+            <th>Programas</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for participante in participantes %}
+        <tr>
+            <td>{{ participante.ci }}</td>
+            <td>{{ participante.nombre }}</td>
+            <td>{{ participante.apellido }}</td>
+            <td>{{ participante.email }}</td>
+            <td>{{ participante.programas }}</td>
+            <td>
+                <button>Editar</button>
+                <button>Eliminar</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

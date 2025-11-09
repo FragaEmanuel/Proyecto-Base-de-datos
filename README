@@ -1,0 +1,4 @@
+Para que funcione:
+-insertar en terminar "py -m pip install -r requirements.txt"
+-iniciarlo con "py app.py"
+-se debe poder acceder desde "http://localhost:5000"

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <h2>🏫 Sistema de Gestión de Salas de Estudio - UCU</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>📊 Total de Salas</h3>
+            <p class="stat-number">{{ total_salas }}</p>
+        </div>
+        
+        <div class="stat-card">
+            <h3>👥 Participantes Registrados</h3>
+            <p class="stat-number">{{ total_participantes }}</p>
+        </div>
+        
+        <div class="stat-card">
+            <h3>📅 Reservas Activas</h3>
+            <p class="stat-number">{{ reservas_activas }}</p>
+        </div>
+        
+        <div class="stat-card">
+            <h3>⚠️ Sanciones Activas</h3>
+            <p class="stat-number">{{ sanciones_activas }}</p>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h3>Acciones Rápidas</h3>
+        <div class="action-buttons">
+            <a href="{{ url_for('nueva_reserva') }}" class="btn btn-primary">➕ Nueva Reserva</a>
+            <a href="{{ url_for('nuevo_participante') }}" class="btn btn-secondary">👤 Nuevo Participante</a>
+            <a href="{{ url_for('reportes') }}" class="btn btn-info">📈 Ver Reportes</a>
+        </div>
+    </div>
+
+    <div class="recent-activity">
+        <h3>🔔 Reservas Recientes</h3>
+        {% if reservas_recientes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Sala</th>
+                    <th>Fecha</th>
+                    <th>Horario</th>
+                    <th>Estado</th>
+                    <th>Participantes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reserva in reservas_recientes %}
+                <tr>
+                    <td>{{ reserva.nombre_sala }} - {{ reserva.edificio }}</td>
+                    <td>{{ reserva.fecha }}</td>
+                    <td>{{ reserva.hora_inicio }} - {{ reserva.hora_fin }}</td>
+                    <td>
+                        <span class="status-{{ reserva.estado }}">
+                            {{ reserva.estado | title }}
+                        </span>
+                    </td>
+                    <td>{{ reserva.participantes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No hay reservas recientes.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Salas de Estudio - UCU</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav>
+        <h1>Sistema de Salas de Estudio</h1>
+        <ul>
+            <li><a href="{{ url_for('index') }}">Inicio</a></li>
+            <li><a href="{{ url_for('participantes') }}">Participantes</a></li>
+            <li><a href="{{ url_for('salas') }}">Salas</a></li>
+            <li><a href="{{ url_for('reservas') }}">Reservas</a></li>
+            <li><a href="{{ url_for('reportes') }}">Reportes</a></li>
+        </ul>
+    </nav>
+    
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
