@@ -2,3 +2,17 @@ Para que funcione:
 -insertar en terminar "py -m pip install -r requirements.txt"
 -iniciarlo con "py app.py"
 -se debe poder acceder desde "http://localhost:5000"
+
+
+Para que funcione con contenedores:
+# Construir y ejecutar todos los servicios
+docker-compose up --build
+
+# Ejecutar en segundo plano
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Detener servicios
+docker-compose down
