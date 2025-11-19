@@ -34,7 +34,7 @@ def nuevo_participante():
         query = "INSERT INTO participante (ci, nombre, apellido, email) VALUES (%s, %s, %s, %s)"
         db.execute_insert(query, (ci, nombre, apellido, email))
 
-        # 🔥 Redirigir SIEMPRE después del insert
+        # Redirigir SIEMPRE después del insert
         return redirect(url_for('participantes'))
     
     return render_template('nuevo_participante.html')
@@ -46,11 +46,21 @@ def eliminar_participante(ci):
     
     return redirect(url_for('participantes'))
 
-@app.route('/participante/editar/<string:ci>', methods=['GET'])
+@app.route('/participante/editar/<string:ci>', methods=['GET', 'POST'])
 def editar_participante(ci):
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        apellido = request.form['apellido']
+        email = request.form['email']
+
+        query = "UPDATE participante SET nombre=%s, apellido=%s, email=%s WHERE ci=%s"
+        db.execute_insert(query, (nombre, apellido, email, ci))
+
+        return redirect(url_for('participantes'))
+
     query = "SELECT ci, nombre, apellido, email FROM participante WHERE ci = %s"
     participante = db.execute_query(query, (ci,))
-    
+
     if participante:
         return render_template('editar_participante.html', participante=participante[0])
     else:
