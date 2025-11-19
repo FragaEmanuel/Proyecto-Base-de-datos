@@ -22,6 +22,7 @@ def participantes():
     participantes = db.execute_query(query)
     return render_template('participantes.html', participantes=participantes)
 
+# Participante Nuevo
 @app.route('/participante/nuevo', methods=['GET', 'POST'])
 def nuevo_participante():
     if request.method == 'POST':
@@ -31,14 +32,31 @@ def nuevo_participante():
         email = request.form['email']
         
         query = "INSERT INTO participante (ci, nombre, apellido, email) VALUES (%s, %s, %s, %s)"
-        result = db.execute_insert(query, (ci, nombre, apellido, email))
-        
-        if result:
-            return redirect(url_for('participantes'))
+        db.execute_insert(query, (ci, nombre, apellido, email))
+
+        # 🔥 Redirigir SIEMPRE después del insert
+        return redirect(url_for('participantes'))
     
     return render_template('nuevo_participante.html')
 
-# ABM de Salas
+@app.route('/participante/eliminar/<string:ci>', methods=['POST'])
+def eliminar_participante(ci):
+    query = "DELETE FROM participante WHERE ci = %s"
+    db.execute_insert(query, (ci,))
+    
+    return redirect(url_for('participantes'))
+
+@app.route('/participante/editar/<string:ci>', methods=['GET'])
+def editar_participante(ci):
+    query = "SELECT ci, nombre, apellido, email FROM participante WHERE ci = %s"
+    participante = db.execute_query(query, (ci,))
+    
+    if participante:
+        return render_template('editar_participante.html', participante=participante[0])
+    else:
+        return "Participante no encontrado", 404
+
+# Listar Salas
 @app.route('/salas')
 def salas():
     query = """
@@ -46,9 +64,35 @@ def salas():
            e.direccion, e.departamento
     FROM sala s
     JOIN edificio e ON s.edificio = e.nombre_edificio
+    ORDER BY s.edificio, s.nombre_sala
     """
     salas = db.execute_query(query)
     return render_template('salas.html', salas=salas)
+
+#ABM de Salas
+@app.route('/sala/nueva', methods=['GET', 'POST'])
+def nueva_sala():
+    if request.method == 'POST':
+        nombre_sala = request.form['nombre_sala']
+        edificio = request.form['edificio']
+        capacidad = request.form['capacidad']
+        tipo_sala = request.form['tipo_sala']
+        
+        query = "INSERT INTO sala (nombre_sala, edificio, capacidad, tipo_sala) VALUES (%s, %s, %s, %s)"
+        result = db.execute_insert(query, (nombre_sala, edificio, capacidad, tipo_sala))
+        
+        if result:
+            return redirect(url_for('salas'))
+    
+    edificios = db.execute_query("SELECT nombre_edificio FROM edificio")
+    return render_template('nueva_sala.html', edificios=edificios)
+
+@app.route('/sala/eliminar/<string:nombre_sala>/<string:edificio>', methods=['POST'])
+def eliminar_sala(nombre_sala, edificio):
+    query = "DELETE FROM sala WHERE nombre_sala = %s AND edificio = %s"
+    result = db.execute_insert(query, (nombre_sala, edificio))
+    
+    return redirect(url_for('salas'))
 
 # Reservas
 @app.route('/reservas')
@@ -80,6 +124,11 @@ def nueva_reserva():
                          salas=salas, 
                          turnos=turnos, 
                          participantes=participantes)
+    
+@app.route('/reserva/cancelar/<int:id_reserva>', methods=['POST'])
+def cancelar_reserva(id_reserva):
+    query = "UPDATE reserva SET estado = 'cancelada' WHERE id_reserva = %s"
+    result = db.execute_insert(query, (id_reserva,))
 
 # Reportes
 @app.route('/reportes')

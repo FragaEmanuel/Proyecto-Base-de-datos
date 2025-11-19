@@ -5,7 +5,7 @@
 
 <a href="{{ url_for('nuevo_participante') }}" class="btn">Nuevo Participante</a>
 
-<table>
+<table border="1" cellpadding="5" cellspacing="0">
     <thead>
         <tr>
             <th>CI</th>
@@ -23,10 +23,15 @@
             <td>{{ participante.nombre }}</td>
             <td>{{ participante.apellido }}</td>
             <td>{{ participante.email }}</td>
-            <td>{{ participante.programas }}</td>
+            <td>{{ participante.programas or '' }}</td>
             <td>
-                <button>Editar</button>
-                <button>Eliminar</button>
+                <!-- Botón Editar: va a la ruta GET para editar -->
+                <a href="{{ url_for('editar_participante', ci=participante.ci) }}" class="btn">Editar</a>
+
+                <!-- Botón Eliminar: envía POST a la ruta eliminar -->
+                <form action="{{ url_for('eliminar_participante', ci=participante.ci) }}" method="POST" style="display:inline;">
+                    <button type="submit" onclick="return confirm('¿Seguro que desea eliminar este participante?');">Eliminar</button>
+                </form>
             </td>
         </tr>
         {% endfor %}

@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS participante (
 
 CREATE TABLE IF NOT EXISTS facultad (
     id_facultad VARCHAR(50) PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL
+    nombre VARCHAR(50) NOT NULL UNIQUE 
 );
 
 
@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS programa_académico (
     nombre_programa VARCHAR(50) PRIMARY KEY,
     id_facultad VARCHAR(50) NOT NULL,
     tipo ENUM('grado','posgrado') NOT NULL,
-    FOREIGN KEY (id_facultad) REFERENCES facultad(id_facultad)
+    nombre_facultad VARCHAR(50) NOT NULL,   
+    FOREIGN KEY (id_facultad) REFERENCES facultad(id_facultad),
+    FOREIGN KEY (nombre_facultad) REFERENCES facultad(nombre)
 );
 
 
