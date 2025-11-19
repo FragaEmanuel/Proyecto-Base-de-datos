@@ -104,41 +104,65 @@ def eliminar_sala(nombre_sala, edificio):
     
     return redirect(url_for('salas'))
 
-# Reservas
+# ABM de Reservas
+
+# Listar Reservas
 @app.route('/reservas')
 def reservas():
     query = """
     SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha, 
            t.hora_inicio, t.hora_fin, r.estado,
-           COUNT(rp.ci_participante) as participantes
+           GROUP_CONCAT(CONCAT(p.nombre, ' ', p.apellido) SEPARATOR ', ') AS participantes
     FROM reserva r
     JOIN turno t ON r.id_turno = t.id_turno
     LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+    LEFT JOIN participante p ON rp.ci_participante = p.ci
     GROUP BY r.id_reserva
+    ORDER BY r.fecha DESC, t.hora_inicio ASC
     """
     reservas = db.execute_query(query)
     return render_template('reservas.html', reservas=reservas)
 
+
 @app.route('/reserva/nueva', methods=['GET', 'POST'])
 def nueva_reserva():
     if request.method == 'POST':
-        # Aquí implementarías la lógica de reserva con validaciones
-        pass
-    
+        # Tomar datos del formulario
+        nombre_sala = request.form['sala']
+        edificio = request.form['edificio']
+        fecha = request.form['fecha']
+        id_turno = request.form['turno']
+        participantes = request.form.getlist('participantes')
+
+        # Insertar reserva
+        query = "INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado) VALUES (%s, %s, %s, %s, 'activa')"
+        reserva_id = db.execute_insert(query, (nombre_sala, edificio, fecha, id_turno))
+        
+        # Insertar participantes asociados
+        for ci in participantes:
+            query_part = "INSERT INTO reserva_participante (id_reserva, ci_participante) VALUES (%s, %s)"
+            db.execute_insert(query_part, (reserva_id, ci))
+        
+        # Redirigir sin mostrar flash
+        return redirect(url_for('reservas'))
+
     # Obtener datos para el formulario
     salas = db.execute_query("SELECT nombre_sala, edificio, capacidad FROM sala")
     turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
     
     return render_template('nueva_reserva.html', 
-                         salas=salas, 
-                         turnos=turnos, 
-                         participantes=participantes)
+                           salas=salas, 
+                           turnos=turnos, 
+                           participantes=participantes)
     
 @app.route('/reserva/cancelar/<int:id_reserva>', methods=['POST'])
 def cancelar_reserva(id_reserva):
     query = "UPDATE reserva SET estado = 'cancelada' WHERE id_reserva = %s"
-    result = db.execute_insert(query, (id_reserva,))
+    db.execute_insert(query, (id_reserva,))
+    return redirect(url_for('reservas'))
+
+
 
 # Reportes
 @app.route('/reportes')
