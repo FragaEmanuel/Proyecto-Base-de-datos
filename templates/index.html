@@ -1,72 +1,86 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="dashboard">
-    <h2>🏫 Sistema de Gestión de Salas de Estudio - UCU</h2>
-    
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h3>📊 Total de Salas</h3>
-            <p class="stat-number">{{ total_salas }}</p>
-        </div>
-        
-        <div class="stat-card">
-            <h3>👥 Participantes Registrados</h3>
-            <p class="stat-number">{{ total_participantes }}</p>
-        </div>
-        
-        <div class="stat-card">
-            <h3>📅 Reservas Activas</h3>
-            <p class="stat-number">{{ reservas_activas }}</p>
-        </div>
-        
-        <div class="stat-card">
-            <h3>⚠️ Sanciones Activas</h3>
-            <p class="stat-number">{{ sanciones_activas }}</p>
+
+<h2 class="mb-4"><i class="fas fa-home"></i> Dashboard General</h2>
+
+<!-- TARJETAS DE ESTADÍSTICAS -->
+<div class="row g-4 mb-4">
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <h4 class="text-primary"><i class="fas fa-door-open"></i></h4>
+                <h6>Total de Salas</h6>
+                <h3>{{ total_salas }}</h3>
+            </div>
         </div>
     </div>
 
-    <div class="quick-actions">
-        <h3>Acciones Rápidas</h3>
-        <div class="action-buttons">
-            <a href="{{ url_for('nueva_reserva') }}" class="btn btn-primary">➕ Nueva Reserva</a>
-            <a href="{{ url_for('nuevo_participante') }}" class="btn btn-secondary">👤 Nuevo Participante</a>
-            <a href="{{ url_for('reportes') }}" class="btn btn-info">📈 Ver Reportes</a>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <h4 class="text-success"><i class="fas fa-users"></i></h4>
+                <h6>Participantes Registrados</h6>
+                <h3>{{ total_participantes }}</h3>
+            </div>
         </div>
     </div>
 
-    <div class="recent-activity">
-        <h3>🔔 Reservas Recientes</h3>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <h4 class="text-warning"><i class="fas fa-calendar-check"></i></h4>
+                <h6>Reservas Activas</h6>
+                <h3>{{ reservas_activas }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <h4 class="text-danger"><i class="fas fa-exclamation-triangle"></i></h4>
+                <h6>Sanciones Activas</h6>
+                <h3>{{ sanciones_activas }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ACCIONES RÁPIDAS -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <h5><i class="fas fa-bolt"></i> Acciones Rápidas</h5>
+        <div class="d-flex gap-3 mt-3">
+            <a href="/reserva/nueva" class="btn btn-primary"><i class="fas fa-calendar-plus"></i> Nueva Reserva</a>
+            <a href="/participante/nuevo" class="btn btn-secondary"><i class="fas fa-user-plus"></i> Nuevo Participante</a>
+            <a href="/reportes" class="btn btn-info text-white"><i class="fas fa-chart-line"></i> Ver Reportes</a>
+        </div>
+    </div>
+</div>
+
+<!-- ACTIVIDAD RECIENTE -->
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <h5><i class="fas fa-bell"></i> Reservas Recientes</h5>
+
         {% if reservas_recientes %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Sala</th>
-                    <th>Fecha</th>
-                    <th>Horario</th>
-                    <th>Estado</th>
-                    <th>Participantes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for reserva in reservas_recientes %}
-                <tr>
-                    <td>{{ reserva.nombre_sala }} - {{ reserva.edificio }}</td>
-                    <td>{{ reserva.fecha }}</td>
-                    <td>{{ reserva.hora_inicio }} - {{ reserva.hora_fin }}</td>
-                    <td>
-                        <span class="status-{{ reserva.estado }}">
-                            {{ reserva.estado | title }}
-                        </span>
-                    </td>
-                    <td>{{ reserva.participantes }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <ul class="list-group mt-3">
+            {% for r in reservas_recientes %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ r.nombre_sala }} ({{ r.edificio }})</strong><br>
+                    <small class="text-muted">{{ r.fecha }} — {{ r.hora_inicio }} a {{ r.hora_fin }}</small>
+                </div>
+                <span class="badge bg-primary">{{ r.estado }}</span>
+            </li>
+            {% endfor %}
+        </ul>
         {% else %}
-        <p>No hay reservas recientes.</p>
+        <p class="text-muted mt-3">No hay reservas recientes.</p>
         {% endif %}
     </div>
 </div>
+
 {% endblock %}

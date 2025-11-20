@@ -56,18 +56,36 @@ def participantes():
 @app.route('/participante/nuevo', methods=['GET', 'POST'])
 def nuevo_participante():
     if request.method == 'POST':
+
         ci = request.form['ci']
         nombre = request.form['nombre']
         apellido = request.form['apellido']
         email = request.form['email']
-        
-        query = "INSERT INTO participante (ci, nombre, apellido, email) VALUES (%s, %s, %s, %s)"
+
+        programas = request.form.getlist('programas')
+        rol = request.form['rol']
+
+        #Inserta participante
+        query = """
+            INSERT INTO participante (ci, nombre, apellido, email)
+            VALUES (%s, %s, %s, %s)
+        """
         db.execute_insert(query, (ci, nombre, apellido, email))
 
-        # Redirigir SIEMPRE después del insert
+        #Inserta relación con sus programas académicos
+        query_prog = """
+            INSERT INTO participante_programa_academico 
+            (ci_participante, nombre_programa, rol)
+            VALUES (%s, %s, %s)
+        """
+
+        for prog in programas:
+            db.execute_insert(query_prog, (ci, prog, rol))
+
         return redirect(url_for('participantes'))
-    
-    return render_template('nuevo_participante.html')
+
+    programas = db.execute_query("SELECT nombre_programa, tipo FROM programa_academico")
+    return render_template('nuevo_participante.html', programas=programas)
 
 @app.route('/participante/eliminar/<string:ci>', methods=['POST'])
 def eliminar_participante(ci):
@@ -82,19 +100,70 @@ def editar_participante(ci):
         nombre = request.form['nombre']
         apellido = request.form['apellido']
         email = request.form['email']
+        programas = request.form.getlist('programas')
+        rol = request.form['rol']
 
-        query = "UPDATE participante SET nombre=%s, apellido=%s, email=%s WHERE ci=%s"
-        db.execute_insert(query, (nombre, apellido, email, ci))
+        #Actualizar participante
+        db.execute_insert("""
+            UPDATE participante
+            SET nombre=%s, apellido=%s, email=%s
+            WHERE ci=%s
+        """, (nombre, apellido, email, ci))
+
+        #Borrar asociaciones anteriores
+        db.execute_insert("""
+            DELETE FROM participante_programa_academico
+            WHERE ci_participante = %s
+        """, (ci,))
+
+        #Insertar las nuevas asociaciones
+        for p in programas:
+            db.execute_insert("""
+                INSERT INTO participante_programa_academico 
+                (ci_participante, nombre_programa, rol)
+                VALUES (%s, %s, %s)
+            """, (ci, p, rol))
 
         return redirect(url_for('participantes'))
 
-    query = "SELECT ci, nombre, apellido, email FROM participante WHERE ci = %s"
-    participante = db.execute_query(query, (ci,))
+    participante = db.execute_query(
+        "SELECT ci, nombre, apellido, email FROM participante WHERE ci=%s",
+        (ci,)
+    )[0]
 
-    if participante:
-        return render_template('editar_participante.html', participante=participante[0])
-    else:
-        return "Participante no encontrado", 404
+    #Programas disponibles
+    programas = db.execute_query("""
+        SELECT nombre_programa, tipo 
+        FROM programa_academico
+    """)
+
+    # Programas actuales del participante
+    programas_participante_rows = db.execute_query("""
+        SELECT nombre_programa 
+        FROM participante_programa_academico 
+        WHERE ci_participante = %s
+    """, (ci,))
+
+    programas_participante = [p['nombre_programa'] 
+                              for p in programas_participante_rows]
+
+    # Obtener rol actual
+    rol_actual_row = db.execute_query("""
+        SELECT rol 
+        FROM participante_programa_academico 
+        WHERE ci_participante = %s
+        LIMIT 1
+    """, (ci,))
+
+    rol_actual = rol_actual_row[0]['rol'] if rol_actual_row else "alumno"
+
+    return render_template(
+        'editar_participante.html',
+        participante=participante,
+        programas=programas,
+        programas_participante=programas_participante,
+        rol_actual=rol_actual
+    )
 
 # Listar Salas
 @app.route('/salas')
