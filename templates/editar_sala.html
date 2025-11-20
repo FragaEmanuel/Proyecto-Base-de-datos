@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4"><i class="fas fa-edit"></i> Editar Sala</h2>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+
+        <form action="{{ url_for('editar_sala', nombre_sala=sala.nombre_sala, edificio=sala.edificio) }}"
+              method="POST" class="row g-3">
+
+            <!-- nombre_sala y edificio forman la PK, no se pueden modificar -->
+            <div class="col-md-6">
+                <label class="form-label">Nombre de Sala *</label>
+                <input type="text" class="form-control" value="{{ sala.nombre_sala }}" readonly>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Edificio *</label>
+                <input type="text" class="form-control" value="{{ sala.edificio }}" readonly>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Capacidad *</label>
+                <input type="number" name="capacidad" value="{{ sala.capacidad }}" 
+                       class="form-control" required min="1">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Tipo *</label>
+                <select name="tipo_sala" class="form-select" required>
+                    <option value="libre" {% if sala.tipo_sala=='libre' %}selected{% endif %}>Libre</option>
+                    <option value="posgrado" {% if sala.tipo_sala=='posgrado' %}selected{% endif %}>Posgrado</option>
+                    <option value="docente" {% if sala.tipo_sala=='docente' %}selected{% endif %}>Docente</option>
+                </select>
+            </div>
+
+            <div class="col-12 mt-4 d-flex gap-3">
+                <button class="btn btn-primary"><i class="fas fa-save"></i> Guardar Cambios</button>
+                <a href="{{ url_for('salas') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Cancelar
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+{% endblock %}
