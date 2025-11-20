@@ -11,8 +11,8 @@ INSERT IGNORE INTO facultad (id_facultad, nombre) VALUES
 ('FCS', 'Facultad de Ciencias de la Salud'),
 ('FDE', 'Facultad de Empresariales');
 
--- Datos de programas académicos
-INSERT IGNORE INTO programa_académico (nombre_programa, id_facultad, tipo) VALUES
+-- Datos de programas academicos
+INSERT IGNORE INTO programa_academico (nombre_programa, id_facultad, tipo) VALUES
 ('Ingeniería en Computación', 'FING', 'grado'),
 ('Licenciatura en Sistemas', 'FING', 'grado'),
 ('Maestría en Data Science', 'FING', 'posgrado'),
@@ -27,14 +27,14 @@ INSERT IGNORE INTO participante (ci, nombre, apellido, email) VALUES
 ('44332211', 'Ana', 'Martínez', 'ana.martinez@ucu.edu.uy');
 
 -- Datos de participantes en programas
-INSERT IGNORE INTO participante_programa_académico (id_alumno_programa, ci_participante, nombre_programa, rol) VALUES
+INSERT IGNORE INTO participante_programa_academico (id_alumno_programa, ci_participante, nombre_programa, rol) VALUES
 ('AP001', '12345678', 'Ingeniería en Computación', 'alumno'),
 ('AP002', '87654321', 'Licenciatura en Sistemas', 'alumno'),
 ('AP003', '11223344', 'Maestría en Data Science', 'docente'),
 ('AP004', '44332211', 'Medicina', 'alumno');
 
 -- Datos de edificios
-INSERT IGNORE INTO edificio (nombre_edificio, dirección, departamento) VALUES
+INSERT IGNORE INTO edificio (nombre_edificio, direccion, departamento) VALUES
 ('Edificio Central', 'Av. 8 de Octubre 2738', 'Montevideo'),
 ('Edificio Norte', 'Av. Italia 6201', 'Montevideo'),
 ('Edificio Postgrado', 'Cnu. Gral. Flores 2456', 'Montevideo');

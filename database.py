@@ -184,7 +184,7 @@ class Database:
                 connection.commit()
                 return cursor.lastrowid
             except Error as e:
-                print(f"❌ Error ejecutando insert: {e}")
+                print(f"Error ejecutando insert: {e}")
                 return None
             finally:
                 cursor.close()

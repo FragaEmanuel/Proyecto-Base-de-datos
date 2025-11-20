@@ -116,10 +116,12 @@
                                     <i class="fas fa-eye"></i> Ver Detalles
                                 </button>
                                 {% if reserva.estado == 'activa' %}
-                                <button class="btn btn-sm btn-outline-warning"
-                                        onclick="cancelarReserva('{{ reserva.id_reserva }}')">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </button>
+                                <form action="/reserva/cancelar/{{ reserva.id_reserva }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning"
+                                            onclick="return confirm('¿Seguro que deseas cancelar esta reserva?');">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </button>
+                                </form>
                                 {% endif %}
                                 <button class="btn btn-sm btn-outline-info"
                                         onclick="gestionarAsistencia('{{ reserva.id_reserva }}')">

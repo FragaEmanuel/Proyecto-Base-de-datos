@@ -7,7 +7,37 @@ db = Database()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    total_salas = db.execute_query("SELECT COUNT(*) AS total FROM sala")[0]['total']
+    total_participantes = db.execute_query("SELECT COUNT(*) AS total FROM participante")[0]['total']
+    reservas_activas = db.execute_query("SELECT COUNT(*) AS total FROM reserva WHERE estado = 'activa'")[0]['total']
+    sanciones_activas = db.execute_query("""
+        SELECT COUNT(*) AS total 
+        FROM sancion_participante
+        WHERE fecha_fin >= CURDATE()
+    """)[0]['total']
+
+    reservas_recientes = db.execute_query("""
+        SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha,
+               t.hora_inicio, t.hora_fin,
+               r.estado,
+               GROUP_CONCAT(CONCAT(p.nombre, ' ', p.apellido) SEPARATOR ', ') AS participantes
+        FROM reserva r
+        JOIN turno t ON r.id_turno = t.id_turno
+        LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+        LEFT JOIN participante p ON rp.ci_participante = p.ci
+        GROUP BY r.id_reserva
+        ORDER BY r.fecha DESC, t.hora_inicio DESC
+        LIMIT 10
+    """)
+
+    return render_template(
+        'index.html',
+        total_salas=total_salas,
+        total_participantes=total_participantes,
+        reservas_activas=reservas_activas,
+        sanciones_activas=sanciones_activas,
+        reservas_recientes=reservas_recientes
+    )
 
 # ABM de Participantes
 @app.route('/participantes')
@@ -16,7 +46,7 @@ def participantes():
     SELECT p.ci, p.nombre, p.apellido, p.email, 
            GROUP_CONCAT(DISTINCT ppa.nombre_programa) as programas
     FROM participante p
-    LEFT JOIN participante_programa_académico ppa ON p.ci = ppa.ci_participante
+    LEFT JOIN participante_programa_academico ppa ON p.ci = ppa.ci_participante
     GROUP BY p.ci
     """
     participantes = db.execute_query(query)
@@ -124,6 +154,7 @@ def reservas():
     return render_template('reservas.html', reservas=reservas)
 
 
+
 @app.route('/reserva/nueva', methods=['GET', 'POST'])
 def nueva_reserva():
     if request.method == 'POST':
@@ -136,7 +167,12 @@ def nueva_reserva():
 
         # Insertar reserva
         query = "INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado) VALUES (%s, %s, %s, %s, 'activa')"
+
+        print("Voy a insertar reserva:", nombre_sala, edificio, fecha, id_turno)
+
         reserva_id = db.execute_insert(query, (nombre_sala, edificio, fecha, id_turno))
+
+        print("ID obtenido:", reserva_id)
         
         # Insertar participantes asociados
         for ci in participantes:
