@@ -196,11 +196,35 @@ def nueva_sala():
     edificios = db.execute_query("SELECT nombre_edificio FROM edificio")
     return render_template('nueva_sala.html', edificios=edificios)
 
+@app.route('/sala/editar/<string:nombre_sala>/<string:edificio>', methods=['GET', 'POST'])
+def editar_sala(nombre_sala, edificio):
+
+    if request.method == 'POST':
+        capacidad = request.form['capacidad']
+        tipo_sala = request.form['tipo_sala']
+
+        db.execute_insert("""
+            UPDATE sala
+            SET capacidad = %s, tipo_sala = %s
+            WHERE nombre_sala = %s AND edificio = %s
+        """, (capacidad, tipo_sala, nombre_sala, edificio))
+
+        return redirect(url_for('salas'))
+
+    sala = db.execute_query("""
+        SELECT * FROM sala 
+        WHERE nombre_sala=%s AND edificio=%s
+    """, (nombre_sala, edificio))[0]
+
+    return render_template("editar_sala.html", sala=sala)
+
 @app.route('/sala/eliminar/<string:nombre_sala>/<string:edificio>', methods=['POST'])
 def eliminar_sala(nombre_sala, edificio):
-    query = "DELETE FROM sala WHERE nombre_sala = %s AND edificio = %s"
-    result = db.execute_insert(query, (nombre_sala, edificio))
-    
+    db.execute_insert("""
+        DELETE FROM sala 
+        WHERE nombre_sala = %s AND edificio = %s
+    """, (nombre_sala, edificio))
+
     return redirect(url_for('salas'))
 
 # ABM de Reservas
