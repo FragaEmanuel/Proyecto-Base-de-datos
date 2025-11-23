@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<div class="container mt-4">
+
+    <h1 class="mb-4">
+        <i class="fas fa-chart-line"></i> Reportes del Sistema
+    </h1>
+
+    <div class="row mb-4">
+
+        <div class="col-md-4">
+            <div class="card shadow-sm text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x text-primary"></i>
+                    <h5 class="mt-3">Total Asistencias</h5>
+                    <h3 class="text-success">{{ asistencia.asistencias }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm text-center">
+                <div class="card-body">
+                    <i class="fas fa-user-times fa-2x text-danger"></i>
+                    <h5 class="mt-3">Total Inasistencias</h5>
+                    <h3 class="text-danger">{{ asistencia.inasistencias }}</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-door-open"></i> Salas más reservadas
+        </div>
+        <div class="card-body">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Sala</th>
+                        <th>Edificio</th>
+                        <th>Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in salas_pop %}
+                    <tr>
+                        <td>{{ s.nombre_sala }}</td>
+                        <td>{{ s.edificio }}</td>
+                        <td><strong>{{ s.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning">
+            <i class="fas fa-clock"></i> Turnos más demandados
+        </div>
+        <div class="card-body">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Inicio</th>
+                        <th>Fin</th>
+                        <th>Total Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in turnos_pop %}
+                    <tr>
+                        <td>{{ t.hora_inicio }}</td>
+                        <td>{{ t.hora_fin }}</td>
+                        <td><strong>{{ t.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-user-graduate"></i> Participantes con más reservas
+        </div>
+        <div class="card-body">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>CI</th>
+                        <th>Nombre</th>
+                        <th>Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in partic_reservas %}
+                    <tr>
+                        <td>{{ p.ci }}</td>
+                        <td>{{ p.nombre }} {{ p.apellido }}</td>
+                        <td><strong>{{ p.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <i class="fas fa-chart-pie"></i> Ocupación por Sala
+        </div>
+        <div class="card-body">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Sala</th>
+                        <th>Edificio</th>
+                        <th>Capacidad</th>
+                        <th>Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in ocupacion %}
+                    <tr>
+                        <td>{{ s.nombre_sala }}</td>
+                        <td>{{ s.edificio }}</td>
+                        <td>{{ s.capacidad }}</td>
+                        <td><strong>{{ s.reservas }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

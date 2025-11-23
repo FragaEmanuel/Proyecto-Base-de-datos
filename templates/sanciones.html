@@ -24,7 +24,6 @@
         </a>
     </div>
 
-    <!-- Buscador -->
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <label class="form-label"><i class="fas fa-search"></i> Buscar por nombre o CI:</label>
@@ -60,6 +59,10 @@
                     <p><strong><i class="fas fa-calendar-check"></i> Fin:</strong> {{ s.fecha_fin }}</p>
 
                     <div class="d-flex gap-2 mt-3">
+
+                        <a href="{{ url_for('editar_sancion', id_sancion=s.id_sancion) }}" class="btn btn-sm btn-warning">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
 
                         <form action="{{ url_for('eliminar_sancion', id_sancion=s.id_sancion) }}"
                               method="POST"

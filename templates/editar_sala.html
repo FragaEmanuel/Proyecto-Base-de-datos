@@ -9,10 +9,9 @@
         <form action="{{ url_for('editar_sala', nombre_sala=sala.nombre_sala, edificio=sala.edificio) }}"
               method="POST" class="row g-3">
 
-            <!-- nombre_sala y edificio forman la PK, no se pueden modificar -->
             <div class="col-md-6">
                 <label class="form-label">Nombre de Sala *</label>
-                <input type="text" class="form-control" value="{{ sala.nombre_sala }}" readonly>
+                <input type="text" class="form-control" value="{{ sala.nombre_sala }}" readonly>  <!-- readonly para no permitir cambiar la sala y el edificio-->
             </div>
 
             <div class="col-md-6">

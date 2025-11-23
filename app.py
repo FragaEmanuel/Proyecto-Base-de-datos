@@ -3,6 +3,12 @@ from database import Database
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
+from validaciones import (
+    validar_tipo_sala,
+    horas_reservadas_en_dia,
+    reservas_activas_en_semana,
+    tiene_solapamiento
+)
 
 app = Flask(__name__)
 db = Database()
@@ -253,45 +259,186 @@ def reservas():
 @app.route('/reserva/nueva', methods=['GET', 'POST'])
 def nueva_reserva():
     if request.method == 'POST':
-        # Tomar datos del formulario
-        nombre_sala = request.form['sala']
+
+        sala = request.form['sala']
         edificio = request.form['edificio']
         fecha = request.form['fecha']
         id_turno = request.form['turno']
         participantes = request.form.getlist('participantes')
 
-        # Insertar reserva
-        query = "INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado) VALUES (%s, %s, %s, %s, 'activa')"
+        # Info de sala
+        info = db.execute_query("""
+            SELECT capacidad, tipo_sala
+            FROM sala
+            WHERE nombre_sala=%s AND edificio=%s
+        """, (sala, edificio))[0]
 
-        print("Voy a insertar reserva:", nombre_sala, edificio, fecha, id_turno)
+        capacidad = info["capacidad"]
+        tipo_sala = info["tipo_sala"]
 
-        reserva_id = db.execute_insert(query, (nombre_sala, edificio, fecha, id_turno))
+        # === VALIDACIONES GENERALES ===
 
-        print("ID obtenido:", reserva_id)
-        
-        # Insertar participantes asociados
+        # 1) Sala ya reservada → error
+        if sala_ocupada(sala, edificio, fecha, id_turno):
+            return "ERROR: La sala ya está reservada para ese turno."
+
+
+        # 2) Capacidad insuficiente → error (solo una vez, no dentro del loop)
+        if len(participantes) > capacidad:
+            return "ERROR: La cantidad de participantes excede la capacidad de la sala."
+
+        # === VALIDACIONES POR PARTICIPANTE ===
         for ci in participantes:
-            query_part = "INSERT INTO reserva_participante (id_reserva, ci_participante) VALUES (%s, %s)"
-            db.execute_insert(query_part, (reserva_id, ci))
-        
-        # Redirigir sin mostrar flash
+
+            # 3) Participante sancionado
+            if esta_sancionado(ci, fecha):
+                return f"ERROR: El participante {ci} está sancionado y no puede reservar."
+
+            # 4) Tipo de sala no permitido
+            if not validar_tipo_sala(ci, tipo_sala):
+                return f"ERROR: El participante {ci} no tiene permisos para este tipo de sala ({tipo_sala})."
+
+            # 5) Solapamiento de turnos
+            if tiene_solapamiento(ci, fecha, id_turno):
+                return f"ERROR: El participante {ci} ya tiene una reserva en ese turno."
+
+            # 6) Máximo de 2 horas por día
+            if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
+                return f"ERROR: El participante {ci} ya alcanzó el máximo diario (2 horas)."
+
+            # 7) Máximo de 3 reservas por semana
+            if reservas_activas_en_semana(ci, fecha) >= 3:
+                return f"ERROR: El participante {ci} ya alcanzó el máximo semanal (3 reservas)."
+
+        # INSERTAR RESERVA
+        reserva_id = db.execute_insert("""
+            INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado)
+            VALUES (%s, %s, %s, %s, 'activa')
+        """, (sala, edificio, fecha, id_turno))
+
+        # ASOCIAR PARTICIPANTES
+        for ci in participantes:
+            db.execute_insert("""
+                INSERT INTO reserva_participante (id_reserva, ci_participante)
+                VALUES (%s, %s)
+            """, (reserva_id, ci))
+
         return redirect(url_for('reservas'))
 
-    # Obtener datos para el formulario
+    # GET — formulario
     salas = db.execute_query("SELECT nombre_sala, edificio, capacidad FROM sala")
     turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
-    
-    return render_template('nueva_reserva.html', 
-                           salas=salas, 
-                           turnos=turnos, 
-                           participantes=participantes)
+
+    return render_template(
+        'nueva_reserva.html',
+        salas=salas,
+        turnos=turnos,
+        participantes=participantes
+    )
     
 @app.route('/reserva/cancelar/<int:id_reserva>', methods=['POST'])
 def cancelar_reserva(id_reserva):
     query = "UPDATE reserva SET estado = 'cancelada' WHERE id_reserva = %s"
     db.execute_insert(query, (id_reserva,))
     return redirect(url_for('reservas'))
+
+@app.route('/reserva/editar/<int:id_reserva>', methods=['GET', 'POST'])
+def editar_reserva(id_reserva):
+
+    # --- OBTENER INFO BASE ---
+    reserva = db.execute_query("""
+        SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha, r.id_turno,
+               t.hora_inicio, t.hora_fin
+        FROM reserva r
+        JOIN turno t ON r.id_turno = t.id_turno
+        WHERE r.id_reserva = %s
+    """, (id_reserva,))[0]
+
+    sala = reserva["nombre_sala"]
+    edificio = reserva["edificio"]
+
+    # INFO sala (capacidad + tipo)
+    info_sala = db.execute_query("""
+        SELECT capacidad, tipo_sala
+        FROM sala
+        WHERE nombre_sala=%s AND edificio=%s
+    """, (sala, edificio))[0]
+
+    capacidad = info_sala["capacidad"]
+    tipo_sala = info_sala["tipo_sala"]
+
+    # PARTICIPANTES actuales
+    participantes_actuales = db.execute_query("""
+        SELECT ci_participante
+        FROM reserva_participante
+        WHERE id_reserva = %s
+    """, (id_reserva,))
+    participantes_actuales = [p["ci_participante"] for p in participantes_actuales]
+
+    # --- POST: guardar ---
+    if request.method == "POST":
+        fecha = request.form["fecha"]
+        turno = request.form["turno"]
+        participantes = request.form.getlist("participantes")
+
+        # VALIDACIÓN: sala ocupada
+        if sala_ocupada_editando(sala, edificio, fecha, turno, id_reserva):
+            return "ERROR: La sala ya está reservada en ese turno."
+
+        # VALIDAR UNO POR UNO
+        for ci in participantes:
+
+            # Tipo sala
+            if not validar_tipo_sala(ci, tipo_sala):
+                return f"ERROR: El participante {ci} no puede usar este tipo de sala."
+
+            # Capacidad
+            if len(participantes) > capacidad:
+                return "ERROR: La cantidad de participantes excede la capacidad."
+
+            # Solapamiento
+            if tiene_solapamiento(ci, fecha, turno):
+                return f"ERROR: El participante {ci} ya tiene reserva en ese turno."
+
+            # Máximo 2 horas al día
+            if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
+                return f"ERROR: El participante {ci} ya alcanzó el máximo diario."
+
+            # Máximo 3 por semana
+            if reservas_activas_en_semana(ci, fecha) >= 3:
+                return f"ERROR: El participante {ci} alcanzó el máximo semanal."
+
+        # --- ACTUALIZAR RESERVA ---
+        db.execute_insert("""
+            UPDATE reserva
+            SET fecha=%s, id_turno=%s
+            WHERE id_reserva=%s
+        """, (fecha, turno, id_reserva))
+
+        # --- ACTUALIZAR PARTICIPANTES ---
+        db.execute_insert("DELETE FROM reserva_participante WHERE id_reserva=%s", (id_reserva,))
+
+        for ci in participantes:
+            db.execute_insert("""
+                INSERT INTO reserva_participante (id_reserva, ci_participante)
+                VALUES (%s, %s)
+            """, (id_reserva, ci))
+
+        return redirect(url_for("reservas"))
+
+    # --- GET: mostrar formulario ---
+    turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
+    participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
+
+    return render_template(
+        "editar_reserva.html",
+        reserva=reserva,
+        turnos=turnos,
+        participantes=participantes,
+        participantes_actuales=participantes_actuales
+    )
+
 
 
 # ABM de Sanciones
@@ -352,35 +499,168 @@ def eliminar_sancion(id_sancion):
     db.execute_insert(query, (id_sancion,))
     return redirect(url_for('sanciones'))
 
+@app.route('/sancion/editar/<int:id_sancion>', methods=['GET', 'POST'])
+def editar_sancion(id_sancion):
+    # Obtener sanción actual
+    sancion = db.execute_query("""
+        SELECT s.id_sancion, s.ci_participante, s.fecha_inicio, s.fecha_fin,
+               p.nombre, p.apellido
+        FROM sancion_participante s
+        JOIN participante p ON s.ci_participante = p.ci
+        WHERE id_sancion = %s
+    """, (id_sancion,))
+
+    if not sancion:
+        return "Sanción no encontrada"
+
+    sancion = sancion[0]
+
+    if request.method == 'POST':
+        fecha_inicio = request.form['fecha_inicio']
+
+        fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+        fecha_fin_dt = fecha_inicio_dt + relativedelta(months=2)
+
+        db.execute_insert("""
+            UPDATE sancion_participante
+            SET fecha_inicio = %s,
+                fecha_fin = %s
+            WHERE id_sancion = %s
+        """, (fecha_inicio_dt, fecha_fin_dt, id_sancion))
+
+        return redirect(url_for('sanciones'))
+
+    return render_template('editar_sancion.html', sancion=sancion)
+
 
 # Reportes
 @app.route('/reportes')
 def reportes():
-    # Salas más reservadas
-    query_salas_populares = """
-    SELECT r.nombre_sala, r.edificio, COUNT(*) as total_reservas
-    FROM reserva r
-    WHERE r.estado = 'activa'
-    GROUP BY r.nombre_sala, r.edificio
-    ORDER BY total_reservas DESC
-    LIMIT 10
-    """
-    salas_populares = db.execute_query(query_salas_populares)
-    
+
+    # Salas más reservadas (todas, incluso finalizadas)
+    salas_pop = db.execute_query("""
+        SELECT r.nombre_sala, r.edificio, COUNT(*) AS total
+        FROM reserva r
+        GROUP BY r.nombre_sala, r.edificio
+        ORDER BY total DESC
+        LIMIT 10
+    """)
+
     # Turnos más demandados
-    query_turnos_demandados = """
-    SELECT t.hora_inicio, t.hora_fin, COUNT(*) as total_reservas
-    FROM reserva r
-    JOIN turno t ON r.id_turno = t.id_turno
-    WHERE r.estado = 'activa'
-    GROUP BY t.id_turno
-    ORDER BY total_reservas DESC
-    """
-    turnos_demandados = db.execute_query(query_turnos_demandados)
-    
-    return render_template('reportes.html', 
-                         salas_populares=salas_populares,
-                         turnos_demandados=turnos_demandados)
+    turnos_pop = db.execute_query("""
+        SELECT t.hora_inicio, t.hora_fin, COUNT(*) AS total
+        FROM reserva r
+        JOIN turno t ON r.id_turno = t.id_turno
+        GROUP BY t.id_turno
+        ORDER BY total DESC
+    """)
+
+    # Participantes con más reservas
+    partic_reservas = db.execute_query("""
+        SELECT p.ci, p.nombre, p.apellido, COUNT(*) AS total
+        FROM participante p
+        JOIN reserva_participante rp ON p.ci = rp.ci_participante
+        GROUP BY p.ci
+        ORDER BY total DESC
+        LIMIT 10
+    """)
+
+    # Salas con mayor porcentaje de ocupación
+    ocupacion = db.execute_query("""
+        SELECT 
+            s.nombre_sala,
+            s.edificio,
+            COUNT(r.id_reserva) AS reservas,
+            s.capacidad
+        FROM sala s
+        LEFT JOIN reserva r ON s.nombre_sala = r.nombre_sala 
+                           AND s.edificio = r.edificio
+        GROUP BY s.nombre_sala, s.edificio, s.capacidad
+        ORDER BY reservas DESC
+    """)
+
+    # Asistencias vs. inasistencias
+    asistencia = db.execute_query("""
+        SELECT 
+            SUM(CASE WHEN asistencia = 1 THEN 1 ELSE 0 END) AS asistencias,
+            SUM(CASE WHEN asistencia = 0 THEN 1 ELSE 0 END) AS inasistencias
+        FROM reserva_participante
+    """)
+
+    return render_template(
+        "reportes.html",
+        salas_pop=salas_pop,
+        turnos_pop=turnos_pop,
+        partic_reservas=partic_reservas,
+        ocupacion=ocupacion,
+        asistencia=asistencia[0]
+    )
+
+@app.route('/asistencia/<int:id_reserva>', methods=['GET', 'POST'])
+def asistencia(id_reserva):
+    if request.method == 'POST':
+        # Guardar cambios de asistencia
+        asistencias = request.form.getlist('asistencia')
+
+        # Resetear todo
+        db.execute_insert("""
+            UPDATE reserva_participante
+            SET asistencia = 0
+            WHERE id_reserva = %s
+        """, (id_reserva,))
+
+        # Marcar solo los que asistieron
+        for ci in asistencias:
+            db.execute_insert("""
+                UPDATE reserva_participante
+                SET asistencia = 1
+                WHERE id_reserva = %s AND ci_participante = %s
+            """, (id_reserva, ci))
+
+        # Si todos faltaron → marcar reserva como “sin asistencia”
+        cant = db.execute_query("""
+            SELECT SUM(asistencia) AS asistentes
+            FROM reserva_participante
+            WHERE id_reserva = %s
+        """, (id_reserva,))[0]['asistentes']
+
+        if cant == 0:
+            db.execute_insert("""
+                UPDATE reserva
+                SET estado = 'sin asistencia'
+                WHERE id_reserva = %s
+            """, (id_reserva,))
+        else:
+            db.execute_insert("""
+                UPDATE reserva
+                SET estado = 'finalizada'
+                WHERE id_reserva = %s
+            """, (id_reserva,))
+
+        return redirect(url_for('reservas'))
+
+    # GET → mostrar formulario de asistencia
+
+    reserva = db.execute_query("""
+        SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha,
+               t.hora_inicio, t.hora_fin, r.estado
+        FROM reserva r
+        JOIN turno t ON r.id_turno = t.id_turno
+        WHERE r.id_reserva = %s
+    """, (id_reserva,))[0]
+
+    participantes = db.execute_query("""
+        SELECT rp.ci_participante, p.nombre, p.apellido, rp.asistencia
+        FROM reserva_participante rp
+        JOIN participante p ON p.ci = rp.ci_participante
+        WHERE rp.id_reserva = %s
+    """, (id_reserva,))
+
+    return render_template(
+        "asistencia.html",
+        reserva=reserva,
+        participantes=participantes
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
