@@ -1,16 +1,21 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from database import Database
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
 from validaciones import (
     validar_tipo_sala,
+    esta_sancionado,
+    sala_ocupada,
+    sala_ocupada_editando,
     horas_reservadas_en_dia,
     reservas_activas_en_semana,
-    tiene_solapamiento
+    tiene_solapamiento,
+    tiene_solapamiento_editando
 )
 
 app = Flask(__name__)
+app.secret_key = "super_secret_key"
 db = Database()
 
 @app.route('/')
@@ -60,7 +65,6 @@ def participantes():
     participantes = db.execute_query(query)
     return render_template('participantes.html', participantes=participantes)
 
-# Participante Nuevo
 @app.route('/participante/nuevo', methods=['GET', 'POST'])
 def nuevo_participante():
     if request.method == 'POST':
@@ -73,14 +77,14 @@ def nuevo_participante():
         programas = request.form.getlist('programas')
         rol = request.form['rol']
 
-        #Inserta participante
+        # Inserta participante
         query = """
             INSERT INTO participante (ci, nombre, apellido, email)
             VALUES (%s, %s, %s, %s)
         """
         db.execute_insert(query, (ci, nombre, apellido, email))
 
-        #Inserta relación con sus programas académicos
+        # Inserta relación con sus programas académicos
         query_prog = """
             INSERT INTO participante_programa_academico 
             (ci_participante, nombre_programa, rol)
@@ -111,20 +115,20 @@ def editar_participante(ci):
         programas = request.form.getlist('programas')
         rol = request.form['rol']
 
-        #Actualizar participante
+        # Actualizar participante
         db.execute_insert("""
             UPDATE participante
             SET nombre=%s, apellido=%s, email=%s
             WHERE ci=%s
         """, (nombre, apellido, email, ci))
 
-        #Borrar asociaciones anteriores
+        # Borrar asociaciones anteriores
         db.execute_insert("""
             DELETE FROM participante_programa_academico
             WHERE ci_participante = %s
         """, (ci,))
 
-        #Insertar las nuevas asociaciones
+        # Insertar las nuevas asociaciones
         for p in programas:
             db.execute_insert("""
                 INSERT INTO participante_programa_academico 
@@ -139,7 +143,7 @@ def editar_participante(ci):
         (ci,)
     )[0]
 
-    #Programas disponibles
+    # Programas disponibles
     programas = db.execute_query("""
         SELECT nombre_programa, tipo 
         FROM programa_academico
@@ -155,7 +159,7 @@ def editar_participante(ci):
     programas_participante = [p['nombre_programa'] 
                               for p in programas_participante_rows]
 
-    # Obtener rol actual
+    # Rol del participante
     rol_actual_row = db.execute_query("""
         SELECT rol 
         FROM participante_programa_academico 
@@ -264,7 +268,7 @@ def nueva_reserva():
         edificio = request.form['edificio']
         fecha = request.form['fecha']
         id_turno = request.form['turno']
-        participantes = request.form.getlist('participantes')
+        participantes = request.form.getlist('participantes[]')
 
         # Info de sala
         info = db.execute_query("""
@@ -276,56 +280,53 @@ def nueva_reserva():
         capacidad = info["capacidad"]
         tipo_sala = info["tipo_sala"]
 
-        # === VALIDACIONES GENERALES ===
-
-        # 1) Sala ya reservada → error
-        if sala_ocupada(sala, edificio, fecha, id_turno):
-            return "ERROR: La sala ya está reservada para ese turno."
-
-
-        # 2) Capacidad insuficiente → error (solo una vez, no dentro del loop)
+        # Validaciones generales
         if len(participantes) > capacidad:
-            return "ERROR: La cantidad de participantes excede la capacidad de la sala."
+            flash("La sala no tiene capacidad suficiente.", "danger")
+            return redirect(url_for('nueva_reserva'))
 
-        # === VALIDACIONES POR PARTICIPANTE ===
+        if sala_ocupada(sala, edificio, fecha, id_turno):
+            flash("La sala ya está reservada en esa fecha y turno.", "danger")
+            return redirect(url_for('nueva_reserva'))
+
+        # Validaciones por participante
         for ci in participantes:
-
-            # 3) Participante sancionado
             if esta_sancionado(ci, fecha):
-                return f"ERROR: El participante {ci} está sancionado y no puede reservar."
+                flash(f"El participante {ci} está sancionado y no puede reservar.", "danger")
+                return redirect(url_for('nueva_reserva'))
 
-            # 4) Tipo de sala no permitido
             if not validar_tipo_sala(ci, tipo_sala):
-                return f"ERROR: El participante {ci} no tiene permisos para este tipo de sala ({tipo_sala})."
+                flash(f"El participante {ci} no tiene permiso para reservar una sala de tipo {tipo_sala}.", "danger")
+                return redirect(url_for('nueva_reserva'))
 
-            # 5) Solapamiento de turnos
             if tiene_solapamiento(ci, fecha, id_turno):
-                return f"ERROR: El participante {ci} ya tiene una reserva en ese turno."
+                flash(f"El participante {ci} ya tiene una reserva en ese turno.", "danger")
+                return redirect(url_for('nueva_reserva'))
 
-            # 6) Máximo de 2 horas por día
             if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
-                return f"ERROR: El participante {ci} ya alcanzó el máximo diario (2 horas)."
+                flash(f"El participante {ci} ya alcanzó su máximo diario de reservas para este edificio.", "danger")
+                return redirect(url_for('nueva_reserva'))
 
-            # 7) Máximo de 3 reservas por semana
             if reservas_activas_en_semana(ci, fecha) >= 3:
-                return f"ERROR: El participante {ci} ya alcanzó el máximo semanal (3 reservas)."
+                flash(f"El participante {ci} ya alcanzó su máximo semanal de reservas activas.", "danger")
+                return redirect(url_for('nueva_reserva'))
 
-        # INSERTAR RESERVA
+        # Crear reserva después de chequeos
         reserva_id = db.execute_insert("""
             INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado)
             VALUES (%s, %s, %s, %s, 'activa')
         """, (sala, edificio, fecha, id_turno))
 
-        # ASOCIAR PARTICIPANTES
+        # Asociar a los participantes
         for ci in participantes:
             db.execute_insert("""
                 INSERT INTO reserva_participante (id_reserva, ci_participante)
                 VALUES (%s, %s)
             """, (reserva_id, ci))
 
+        flash("La reserva fue creada correctamente.", "success")
         return redirect(url_for('reservas'))
 
-    # GET — formulario
     salas = db.execute_query("SELECT nombre_sala, edificio, capacidad FROM sala")
     turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
@@ -345,8 +346,85 @@ def cancelar_reserva(id_reserva):
 
 @app.route('/reserva/editar/<int:id_reserva>', methods=['GET', 'POST'])
 def editar_reserva(id_reserva):
+    if request.method == 'POST':
 
-    # --- OBTENER INFO BASE ---
+        fecha = request.form['fecha']
+        turno = request.form['turno']
+        participantes = request.form.getlist('participantes[]')
+
+        # Cargar reserva original
+        reserva = db.execute_query("""
+            SELECT nombre_sala, edificio
+            FROM reserva
+            WHERE id_reserva = %s
+        """, (id_reserva,))[0]
+
+        nombre_sala = reserva["nombre_sala"]
+        edificio = reserva["edificio"]
+
+        # Info de sala
+        info_sala = db.execute_query("""
+            SELECT capacidad, tipo_sala
+            FROM sala
+            WHERE nombre_sala=%s AND edificio=%s
+        """, (nombre_sala, edificio))[0]
+
+        capacidad = info_sala["capacidad"]
+        tipo_sala = info_sala["tipo_sala"]
+
+        # Validaciones generales
+        if sala_ocupada_editando(nombre_sala, edificio, fecha, turno, id_reserva):
+            flash("La sala ya está reservada en ese turno.", "danger")
+            return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+        if len(participantes) > capacidad:
+            flash("La sala no tiene capacidad suficiente.", "danger")
+            return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+        # Validaciones por participante
+        for ci in participantes:
+            if not validar_tipo_sala(ci, tipo_sala):
+                flash(f"El participante {ci} no puede usar una sala de tipo {tipo_sala}.", "danger")
+                return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+            if esta_sancionado(ci, fecha):
+                flash(f"El participante {ci} está sancionado en esa fecha.", "danger")
+                return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+            if tiene_solapamiento_editando(ci, fecha, turno, id_reserva):
+                flash(f"El participante {ci} ya tiene otra reserva en ese turno.", "danger")
+                return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+            if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
+                flash(f"El participante {ci} ya tiene 2 horas reservadas en ese edificio en esa fecha.", "danger")
+                return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+            if reservas_activas_en_semana(ci, fecha) >= 3:
+                flash(f"El participante {ci} ya tiene 3 reservas activas esa semana.", "danger")
+                return redirect(url_for('editar_reserva', id_reserva=id_reserva))
+
+        # Se actualiza la reserva
+        db.execute_insert("""
+            UPDATE reserva
+            SET fecha=%s, id_turno=%s
+            WHERE id_reserva=%s
+        """, (fecha, turno, id_reserva))
+
+        # Se borran participantes y luego se los inserta
+        db.execute_insert("""
+            DELETE FROM reserva_participante
+            WHERE id_reserva=%s
+        """, (id_reserva,))
+
+        for ci in participantes:
+            db.execute_insert("""
+                INSERT INTO reserva_participante (id_reserva, ci_participante)
+                VALUES (%s, %s)
+            """, (id_reserva, ci))
+
+        flash("Reserva modificada correctamente.", "success")
+        return redirect(url_for('reservas'))
+
     reserva = db.execute_query("""
         SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha, r.id_turno,
                t.hora_inicio, t.hora_fin
@@ -355,81 +433,16 @@ def editar_reserva(id_reserva):
         WHERE r.id_reserva = %s
     """, (id_reserva,))[0]
 
-    sala = reserva["nombre_sala"]
-    edificio = reserva["edificio"]
-
-    # INFO sala (capacidad + tipo)
-    info_sala = db.execute_query("""
-        SELECT capacidad, tipo_sala
-        FROM sala
-        WHERE nombre_sala=%s AND edificio=%s
-    """, (sala, edificio))[0]
-
-    capacidad = info_sala["capacidad"]
-    tipo_sala = info_sala["tipo_sala"]
-
-    # PARTICIPANTES actuales
-    participantes_actuales = db.execute_query("""
-        SELECT ci_participante
-        FROM reserva_participante
-        WHERE id_reserva = %s
-    """, (id_reserva,))
-    participantes_actuales = [p["ci_participante"] for p in participantes_actuales]
-
-    # --- POST: guardar ---
-    if request.method == "POST":
-        fecha = request.form["fecha"]
-        turno = request.form["turno"]
-        participantes = request.form.getlist("participantes")
-
-        # VALIDACIÓN: sala ocupada
-        if sala_ocupada_editando(sala, edificio, fecha, turno, id_reserva):
-            return "ERROR: La sala ya está reservada en ese turno."
-
-        # VALIDAR UNO POR UNO
-        for ci in participantes:
-
-            # Tipo sala
-            if not validar_tipo_sala(ci, tipo_sala):
-                return f"ERROR: El participante {ci} no puede usar este tipo de sala."
-
-            # Capacidad
-            if len(participantes) > capacidad:
-                return "ERROR: La cantidad de participantes excede la capacidad."
-
-            # Solapamiento
-            if tiene_solapamiento(ci, fecha, turno):
-                return f"ERROR: El participante {ci} ya tiene reserva en ese turno."
-
-            # Máximo 2 horas al día
-            if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
-                return f"ERROR: El participante {ci} ya alcanzó el máximo diario."
-
-            # Máximo 3 por semana
-            if reservas_activas_en_semana(ci, fecha) >= 3:
-                return f"ERROR: El participante {ci} alcanzó el máximo semanal."
-
-        # --- ACTUALIZAR RESERVA ---
-        db.execute_insert("""
-            UPDATE reserva
-            SET fecha=%s, id_turno=%s
-            WHERE id_reserva=%s
-        """, (fecha, turno, id_reserva))
-
-        # --- ACTUALIZAR PARTICIPANTES ---
-        db.execute_insert("DELETE FROM reserva_participante WHERE id_reserva=%s", (id_reserva,))
-
-        for ci in participantes:
-            db.execute_insert("""
-                INSERT INTO reserva_participante (id_reserva, ci_participante)
-                VALUES (%s, %s)
-            """, (id_reserva, ci))
-
-        return redirect(url_for("reservas"))
-
-    # --- GET: mostrar formulario ---
     turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
+
+    participantes_actuales_rows = db.execute_query("""
+        SELECT ci_participante
+        FROM reserva_participante
+        WHERE id_reserva=%s
+    """, (id_reserva,))
+
+    participantes_actuales = [p["ci_participante"] for p in participantes_actuales_rows]
 
     return render_template(
         "editar_reserva.html",
@@ -439,21 +452,12 @@ def editar_reserva(id_reserva):
         participantes_actuales=participantes_actuales
     )
 
-
-
 # ABM de Sanciones
 
 # Listar Sanciones
 @app.route('/sanciones')
 def sanciones():
-    
-    # eliminar vencidas antes de mostrar
-    db.execute_insert("""
-        DELETE FROM sancion_participante
-        WHERE fecha_fin < CURDATE()
-    """)
-    
-    query = """
+    sanciones_activas = db.execute_query("""
         SELECT 
             s.id_sancion,
             s.ci_participante,
@@ -463,13 +467,30 @@ def sanciones():
             p.apellido
         FROM sancion_participante s
         JOIN participante p ON s.ci_participante = p.ci
+        WHERE s.fecha_fin >= CURDATE()
         ORDER BY s.fecha_inicio DESC
-    """
-    
-    sanciones = db.execute_query(query)
-    current_date = date.today()
+    """)
 
-    return render_template('sanciones.html', sanciones=sanciones, current_date=current_date)
+    sanciones_vencidas = db.execute_query("""
+        SELECT 
+            s.id_sancion,
+            s.ci_participante,
+            s.fecha_inicio,
+            s.fecha_fin,
+            p.nombre,
+            p.apellido
+        FROM sancion_participante s
+        JOIN participante p ON s.ci_participante = p.ci
+        WHERE s.fecha_fin < CURDATE()
+        ORDER BY s.fecha_fin DESC
+    """)
+
+    return render_template(
+        'sanciones.html',
+        sanciones_activas=sanciones_activas,
+        sanciones_vencidas=sanciones_vencidas,
+        current_date=date.today()
+    )
 
 
 @app.route('/sancion/nueva', methods=['GET', 'POST'])
@@ -500,109 +521,219 @@ def eliminar_sancion(id_sancion):
     return redirect(url_for('sanciones'))
 
 @app.route('/sancion/editar/<int:id_sancion>', methods=['GET', 'POST'])
-def editar_sancion(id_sancion):
+def sancion_editar(id_sancion):
     # Obtener sanción actual
     sancion = db.execute_query("""
-        SELECT s.id_sancion, s.ci_participante, s.fecha_inicio, s.fecha_fin,
-               p.nombre, p.apellido
+        SELECT s.*, p.nombre, p.apellido
         FROM sancion_participante s
-        JOIN participante p ON s.ci_participante = p.ci
+        JOIN participante p ON p.ci = s.ci_participante
         WHERE id_sancion = %s
     """, (id_sancion,))
 
     if not sancion:
-        return "Sanción no encontrada"
+        return "Error: sanción no encontrada", 404
 
     sancion = sancion[0]
 
     if request.method == 'POST':
         fecha_inicio = request.form['fecha_inicio']
 
-        fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
-        fecha_fin_dt = fecha_inicio_dt + relativedelta(months=2)
+        fecha_inicio = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+        fecha_fin = fecha_inicio + relativedelta(months=2)
 
+        # Actualizar sanción
         db.execute_insert("""
             UPDATE sancion_participante
-            SET fecha_inicio = %s,
-                fecha_fin = %s
+            SET fecha_inicio = %s, fecha_fin = %s
             WHERE id_sancion = %s
-        """, (fecha_inicio_dt, fecha_fin_dt, id_sancion))
+        """, (fecha_inicio, fecha_fin, id_sancion))
 
         return redirect(url_for('sanciones'))
 
-    return render_template('editar_sancion.html', sancion=sancion)
+    return render_template(
+        'editar_sancion.html',
+        sancion=sancion
+    )
 
 
 # Reportes
 @app.route('/reportes')
 def reportes():
-
-    # Salas más reservadas (todas, incluso finalizadas)
-    salas_pop = db.execute_query("""
-        SELECT r.nombre_sala, r.edificio, COUNT(*) AS total
+    salas_mas_reservadas = db.execute_query("""
+        SELECT 
+            r.nombre_sala, 
+            r.edificio, 
+            COUNT(*) AS total_reservas
         FROM reserva r
         GROUP BY r.nombre_sala, r.edificio
-        ORDER BY total DESC
-        LIMIT 10
+        ORDER BY total_reservas DESC;
     """)
 
-    # Turnos más demandados
-    turnos_pop = db.execute_query("""
-        SELECT t.hora_inicio, t.hora_fin, COUNT(*) AS total
+    turnos_mas_demandados = db.execute_query("""
+        SELECT 
+            t.id_turno,
+            t.hora_inicio,
+            t.hora_fin,
+            COUNT(*) AS total_reservas
         FROM reserva r
         JOIN turno t ON r.id_turno = t.id_turno
-        GROUP BY t.id_turno
-        ORDER BY total DESC
+        GROUP BY t.id_turno, t.hora_inicio, t.hora_fin
+        ORDER BY total_reservas DESC;
     """)
 
-    # Participantes con más reservas
-    partic_reservas = db.execute_query("""
-        SELECT p.ci, p.nombre, p.apellido, COUNT(*) AS total
-        FROM participante p
-        JOIN reserva_participante rp ON p.ci = rp.ci_participante
-        GROUP BY p.ci
-        ORDER BY total DESC
-        LIMIT 10
+    promedio_participantes = db.execute_query("""
+        SELECT
+            r.nombre_sala,
+            r.edificio,
+            ROUND(COUNT(rp.ci_participante) / COUNT(DISTINCT r.id_reserva), 2)
+                AS promedio_participantes
+        FROM reserva r
+        LEFT JOIN reserva_participante rp 
+            ON r.id_reserva = rp.id_reserva
+        GROUP BY r.nombre_sala, r.edificio
+        ORDER BY promedio_participantes DESC;
     """)
 
-    # Salas con mayor porcentaje de ocupación
-    ocupacion = db.execute_query("""
+    reservas_por_carrera = db.execute_query("""
+        SELECT
+            f.nombre AS facultad,
+            pa.nombre_programa AS carrera,
+            COUNT(DISTINCT r.id_reserva) AS cantidad_reservas
+        FROM facultad f
+        JOIN programa_academico pa
+            ON pa.id_facultad = f.id_facultad
+        JOIN participante_programa_academico ppa
+            ON ppa.nombre_programa = pa.nombre_programa
+        JOIN reserva_participante rp
+            ON rp.ci_participante = ppa.ci_participante
+        JOIN reserva r
+            ON r.id_reserva = rp.id_reserva
+        WHERE ppa.rol = 'alumno'
+        GROUP BY f.nombre, pa.nombre_programa
+        ORDER BY f.nombre, pa.nombre_programa;
+    """)
+
+    porcentaje_ocupacion = db.execute_query("""
         SELECT 
+            s.edificio,
+            s.nombre_sala,
+            COUNT(r.id_reserva) AS reservas,
+            s.capacidad,
+            ROUND((COUNT(r.id_reserva) / s.capacidad) * 100, 2) AS porcentaje_ocupacion
+        FROM sala s
+        LEFT JOIN reserva r 
+            ON s.nombre_sala = r.nombre_sala 
+           AND s.edificio = r.edificio
+        GROUP BY s.edificio, s.nombre_sala, s.capacidad
+        ORDER BY porcentaje_ocupacion DESC;
+    """)
+
+    reservas_asistencias = db.execute_query("""
+        SELECT 
+            ppa.rol AS rol_participante, 
+            pa.tipo AS tipo_programa,
+            COUNT(rp.id_reserva) AS total_reservas,
+            SUM(CASE WHEN rp.asistencia = TRUE THEN 1 ELSE 0 END) AS total_asistencias
+        FROM participante_programa_academico ppa
+        JOIN programa_academico pa
+            ON pa.nombre_programa = ppa.nombre_programa
+        JOIN reserva_participante rp
+            ON rp.ci_participante = ppa.ci_participante
+        JOIN reserva r
+            ON r.id_reserva = rp.id_reserva
+           AND r.estado IN ('activa', 'finalizada', 'sin asistencia')
+        GROUP BY ppa.rol, pa.tipo
+        ORDER BY ppa.rol, pa.tipo;
+    """)
+
+    sanciones_por_tipo = db.execute_query("""
+        SELECT 
+            ppa.rol AS rol_participante, 
+            pa.tipo AS tipo_programa,
+            COUNT(sp.id_sancion) AS cantidad_sanciones
+        FROM participante_programa_academico ppa
+        JOIN programa_academico pa 
+            ON pa.nombre_programa = ppa.nombre_programa
+        LEFT JOIN sancion_participante sp 
+            ON sp.ci_participante = ppa.ci_participante
+        GROUP BY ppa.rol, pa.tipo
+        ORDER BY ppa.rol, pa.tipo;
+    """)
+
+    porcentaje_reservas = db.execute_query("""
+        SELECT
+           estado,
+           COUNT(*) AS cantidad,
+           ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reserva)), 2) AS porcentaje
+        FROM reserva
+        GROUP BY estado
+        ORDER BY cantidad DESC;
+    """)
+
+    faltas_participantes = db.execute_query("""
+        SELECT 
+            p.ci,
+            p.nombre,
+            p.apellido,
+            COUNT(*) AS faltas
+        FROM reserva_participante rp
+        JOIN participante p ON p.ci = rp.ci_participante
+        JOIN reserva r ON r.id_reserva = rp.id_reserva
+        WHERE rp.asistencia = 0
+          AND r.estado = 'sin asistencia'
+        GROUP BY p.ci, p.nombre, p.apellido
+        ORDER BY faltas DESC;
+    """)
+
+    ocupacion_turnos = db.execute_query("""
+        SELECT
+            t.hora_inicio,
+            t.hora_fin,
+            COUNT(r.id_reserva) AS reservas,
+            ROUND((COUNT(r.id_reserva) * 100.0 /
+                  (SELECT COUNT(*) FROM reserva)), 2) AS porcentaje
+        FROM turno t
+        LEFT JOIN reserva r ON r.id_turno = t.id_turno
+        GROUP BY t.id_turno, t.hora_inicio, t.hora_fin
+        ORDER BY porcentaje DESC;
+    """)
+
+    salas_criticas = db.execute_query("""
+        SELECT
             s.nombre_sala,
             s.edificio,
             COUNT(r.id_reserva) AS reservas,
-            s.capacidad
+            s.capacidad,
+            ROUND((COUNT(r.id_reserva) / s.capacidad) * 100, 2) AS ocupacion
         FROM sala s
-        LEFT JOIN reserva r ON s.nombre_sala = r.nombre_sala 
-                           AND s.edificio = r.edificio
+        LEFT JOIN reserva r 
+            ON r.nombre_sala = s.nombre_sala
+           AND r.edificio = s.edificio
         GROUP BY s.nombre_sala, s.edificio, s.capacidad
-        ORDER BY reservas DESC
-    """)
-
-    # Asistencias vs. inasistencias
-    asistencia = db.execute_query("""
-        SELECT 
-            SUM(CASE WHEN asistencia = 1 THEN 1 ELSE 0 END) AS asistencias,
-            SUM(CASE WHEN asistencia = 0 THEN 1 ELSE 0 END) AS inasistencias
-        FROM reserva_participante
+        HAVING ocupacion >= 80
+        ORDER BY ocupacion DESC;
     """)
 
     return render_template(
         "reportes.html",
-        salas_pop=salas_pop,
-        turnos_pop=turnos_pop,
-        partic_reservas=partic_reservas,
-        ocupacion=ocupacion,
-        asistencia=asistencia[0]
+        salas_mas_reservadas=salas_mas_reservadas,
+        turnos_mas_demandados=turnos_mas_demandados,
+        promedio_participantes=promedio_participantes,
+        reservas_por_carrera=reservas_por_carrera,
+        porcentaje_ocupacion=porcentaje_ocupacion,
+        reservas_asistencias=reservas_asistencias,
+        sanciones_por_tipo=sanciones_por_tipo,
+        porcentaje_reservas=porcentaje_reservas,
+        faltas_participantes=faltas_participantes,
+        ocupacion_turnos=ocupacion_turnos,
+        salas_criticas=salas_criticas
     )
 
 @app.route('/asistencia/<int:id_reserva>', methods=['GET', 'POST'])
 def asistencia(id_reserva):
     if request.method == 'POST':
-        # Guardar cambios de asistencia
         asistencias = request.form.getlist('asistencia')
 
-        # Resetear todo
         db.execute_insert("""
             UPDATE reserva_participante
             SET asistencia = 0
@@ -617,7 +748,7 @@ def asistencia(id_reserva):
                 WHERE id_reserva = %s AND ci_participante = %s
             """, (id_reserva, ci))
 
-        # Si todos faltaron → marcar reserva como “sin asistencia”
+        # Si todos faltan se marca como "No asistencia"
         cant = db.execute_query("""
             SELECT SUM(asistencia) AS asistentes
             FROM reserva_participante
@@ -638,8 +769,6 @@ def asistencia(id_reserva):
             """, (id_reserva,))
 
         return redirect(url_for('reservas'))
-
-    # GET → mostrar formulario de asistencia
 
     reserva = db.execute_query("""
         SELECT r.id_reserva, r.nombre_sala, r.edificio, r.fecha,

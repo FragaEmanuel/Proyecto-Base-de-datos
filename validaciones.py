@@ -2,10 +2,6 @@ from database import Database
 
 db = Database()
 
-
-# ======================================================
-#    OBTENER INFO DE USUARIO (tipo, rol)
-# ======================================================
 def obtener_info_usuario(ci):
     query = """
         SELECT pa.tipo, ppa.rol
@@ -18,17 +14,13 @@ def obtener_info_usuario(ci):
     res = db.execute_query(query, (ci,))
     return res[0] if res else None
 
-
-# ======================================================
-#    VALIDAR SI TIPO DE SALA PERMITE AL USUARIO
-# ======================================================
 def validar_tipo_sala(ci, tipo_sala):
     info = obtener_info_usuario(ci)
     if not info:
         return False
 
-    tipo = info["tipo"]       # grado / posgrado
-    rol = info["rol"]         # alumno / docente
+    tipo = info["tipo"] 
+    rol = info["rol"]        
 
     if tipo_sala == "libre":
         return True
@@ -41,10 +33,6 @@ def validar_tipo_sala(ci, tipo_sala):
 
     return False
 
-
-# ======================================================
-#    VALIDAR SI EL USUARIO ESTÁ SANCIONADO
-# ======================================================
 def esta_sancionado(ci, fecha):
     query = """
         SELECT COUNT(*) AS total
@@ -56,10 +44,6 @@ def esta_sancionado(ci, fecha):
     result = db.execute_query(query, (ci, fecha, fecha))[0]["total"]
     return result > 0
 
-
-# ======================================================
-#    VALIDAR SI LA SALA YA ESTÁ RESERVADA
-# ======================================================
 def sala_ocupada(sala, edificio, fecha, turno):
     query = """
         SELECT COUNT(*) AS total
@@ -73,10 +57,6 @@ def sala_ocupada(sala, edificio, fecha, turno):
     total = db.execute_query(query, (sala, edificio, fecha, turno))[0]["total"]
     return total > 0
 
-
-# ======================================================
-#    HORAS RESERVADAS EN DÍA (max 2) 
-# ======================================================
 def horas_reservadas_en_dia(ci, fecha, edificio):
     query = """
         SELECT COUNT(*) AS bloques
@@ -89,10 +69,6 @@ def horas_reservadas_en_dia(ci, fecha, edificio):
     """
     return db.execute_query(query, (ci, fecha, edificio))[0]["bloques"]
 
-
-# ======================================================
-#    RESERVAS ACTIVAS DE LA SEMANA (max 3)
-# ======================================================
 def reservas_activas_en_semana(ci, fecha):
     query = """
         SELECT COUNT(*) AS total
@@ -104,10 +80,6 @@ def reservas_activas_en_semana(ci, fecha):
     """
     return db.execute_query(query, (ci, fecha))[0]["total"]
 
-
-# ======================================================
-#    SOLAPAMIENTO DE TURNOS
-# ======================================================
 def tiene_solapamiento(ci, fecha, turno):
     query = """
         SELECT COUNT(*) AS total
@@ -121,10 +93,6 @@ def tiene_solapamiento(ci, fecha, turno):
     return db.execute_query(query, (ci, fecha, turno))[0]["total"] > 0
 
 def sala_ocupada_editando(nombre_sala, edificio, fecha, turno, id_reserva):
-    """
-    Verifica si una sala ya está reservada en esa fecha y turno,
-    EXCLUYENDO la propia reserva en edición.
-    """
     query = """
         SELECT COUNT(*) AS total
         FROM reserva
@@ -136,4 +104,18 @@ def sala_ocupada_editando(nombre_sala, edificio, fecha, turno, id_reserva):
           AND estado = 'activa'
     """
     res = db.execute_query(query, (nombre_sala, edificio, fecha, turno, id_reserva))
+    return res[0]["total"] > 0
+
+def tiene_solapamiento_editando(ci, fecha, turno, id_reserva):
+    query = """
+        SELECT COUNT(*) AS total
+        FROM reserva r
+        JOIN reserva_participante rp ON rp.id_reserva = r.id_reserva
+        WHERE rp.ci_participante = %s
+          AND r.fecha = %s
+          AND r.id_turno = %s
+          AND r.id_reserva <> %s   -- excluye la reserva editada
+          AND r.estado = 'activa'
+    """
+    res = db.execute_query(query, (ci, fecha, turno, id_reserva))
     return res[0]["total"] > 0

@@ -1,149 +1,134 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nueva Reserva - Sistema de Reservas</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-building"></i> Sistema de Reservas
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/">Inicio</a>
-                <a class="nav-link" href="/participantes">Participantes</a>
-                <a class="nav-link" href="/salas">Salas</a>
-                <a class="nav-link active" href="/reservas">Reservas</a>
-                <a class="nav-link" href="/reportes">Reportes</a>
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">
+                    <i class="fas fa-calendar-plus"></i> Nueva Reserva
+                </h2>
             </div>
-        </div>
-    </nav>
 
-    <div class="container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title mb-0">
-                            <i class="fas fa-calendar-plus"></i> Nueva Reserva
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" action="/reserva/nueva">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="sala" class="form-label">Sala *</label>
-                                    <select class="form-select" id="sala" name="sala" required>
-                                        <option value="">Seleccionar sala...</option>
-                                        {% for sala in salas %}
-                                        <option value="{{ sala.nombre_sala }}" 
-                                                data-edificio="{{ sala.edificio }}"
-                                                data-capacidad="{{ sala.capacidad }}">
-                                            {{ sala.nombre_sala }} ({{ sala.edificio }}) - Cap: {{ sala.capacidad }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
 
-                                <div class="col-md-6 mb-3">
-                                    <label for="edificio" class="form-label">Edificio *</label>
-                                    <input type="text" class="form-control" id="edificio" name="edificio" readonly required>
-                                </div>
-                            </div>
+                    <form method="POST" action="{{ url_for('nueva_reserva') }}">
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="fecha" class="form-label">Fecha *</label>
-                                    <input type="date" class="form-control" id="fecha" name="fecha" min="{{ today }}" required>
-                                </div>
-
-                                <div class="col-md-6 mb-3">
-                                    <label for="turno" class="form-label">Turno *</label>
-                                    <select class="form-select" id="turno" name="turno" required>
-                                        <option value="">Seleccionar turno...</option>
-                                        {% for turno in turnos %}
-                                        <option value="{{ turno.id_turno }}">
-                                            {{ turno.hora_inicio }} - {{ turno.hora_fin }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="participantes" class="form-label">Participantes *</label>
-                                <select class="form-select" id="participantes" name="participantes" multiple required>
-                                    {% for participante in participantes %}
-                                    <option value="{{ participante.ci }}">
-                                        {{ participante.nombre }} {{ participante.apellido }} ({{ participante.ci }})
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="sala" class="form-label">Sala *</label>
+                                <select class="form-select" id="sala" name="sala" required>
+                                    <option value="">Seleccionar sala...</option>
+                                    {% for sala in salas %}
+                                    <option value="{{ sala.nombre_sala }}"
+                                            data-edificio="{{ sala.edificio }}"
+                                            data-capacidad="{{ sala.capacidad }}">
+                                        {{ sala.nombre_sala }} ({{ sala.edificio }})
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">Mantén presionado Ctrl para seleccionar múltiples participantes</div>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Información de la Sala</label>
-                                <div id="infoSala" class="alert alert-info" style="display: none;">
-                                    <strong>Capacidad:</strong> <span id="capacidadInfo">-</span> personas
-                                </div>
+                            <div class="col-md-6">
+                                <label for="edificio" class="form-label">Edificio *</label>
+                                <input type="text" id="edificio" name="edificio" class="form-control" readonly required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="fecha" class="form-label">Fecha *</label>
+                                <input type="date" id="fecha" name="fecha" class="form-control"
+                                       min="{{ current_date }}" required>
                             </div>
 
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                <a href="/reservas" class="btn btn-secondary me-md-2">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Crear Reserva
-                                </button>
+                            <div class="col-md-6">
+                                <label for="turno" class="form-label">Turno *</label>
+                                <select class="form-select" id="turno" name="turno" required>
+                                    <option value="">Seleccionar turno...</option>
+                                    {% for t in turnos %}
+                                    <option value="{{ t.id_turno }}">
+                                        {{ t.hora_inicio }} - {{ t.hora_fin }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Participantes *</label>
+                            <select multiple class="form-select" id="participantes" name="participantes" required>
+                                {% for p in participantes %}
+                                <option value="{{ p.ci }}">
+                                    {{ p.nombre }} {{ p.apellido }} ({{ p.ci }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Presione CTRL para seleccionar varios</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div id="infoSala" class="alert alert-info d-none">
+                                <strong>Capacidad:</strong> <span id="capacidadInfo">-</span> personas
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{{ url_for('reservas') }}" class="btn btn-secondary">
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                Crear Reserva
+                            </button>
+                        </div>
+
+                    </form>
+
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Actualizar fecha mínima a hoy
-        document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
 
-        // Actualizar información de la sala al seleccionar
-        document.getElementById('sala').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const edificio = selectedOption.dataset.edificio;
-            const capacidad = selectedOption.dataset.capacidad;
 
-            document.getElementById('edificio').value = edificio || '';
-            
-            if (capacidad) {
-                document.getElementById('capacidadInfo').textContent = capacidad;
-                document.getElementById('infoSala').style.display = 'block';
-            } else {
-                document.getElementById('infoSala').style.display = 'none';
-            }
-        });
+<script>
+    // Fecha mínima = hoy
+    document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
 
-        // Pre-seleccionar sala si viene por URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const salaParam = urlParams.get('sala');
-        const edificioParam = urlParams.get('edificio');
+    document.getElementById('sala').addEventListener('change', function () {
+        const op = this.options[this.selectedIndex];
 
-        if (salaParam) {
-            const salaSelect = document.getElementById('sala');
-            for (let option of salaSelect.options) {
-                if (option.value === salaParam && option.dataset.edificio === edificioParam) {
-                    salaSelect.value = salaParam;
-                    salaSelect.dispatchEvent(new Event('change'));
-                    break;
-                }
+        const edificio = op.dataset.edificio || "";
+        const capacidad = op.dataset.capacidad || "";
+
+        document.getElementById('edificio').value = edificio;
+
+        if (capacidad) {
+            document.getElementById('capacidadInfo').textContent = capacidad;
+            document.getElementById('infoSala').classList.remove('d-none');
+        } else {
+            document.getElementById('infoSala').classList.add('d-none');
+        }
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const p_sala = params.get("sala");
+    const p_edificio = params.get("edificio");
+
+    if (p_sala) {
+        const select = document.getElementById("sala");
+        for (let op of select.options) {
+            if (op.value === p_sala && op.dataset.edificio === p_edificio) {
+                select.value = p_sala;
+                select.dispatchEvent(new Event("change"));
+                break;
             }
         }
-    </script>
-</body>
-</html>
+    }
+</script>
+
+{% endblock %}

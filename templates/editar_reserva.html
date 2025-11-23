@@ -8,7 +8,9 @@
     <div class="card shadow-sm">
         <div class="card-body">
 
-            <form method="POST">
+            <form method="POST" action="{{ url_for('editar_reserva', id_reserva=reserva.id_reserva) }}">
+
+                <input type="hidden" name="id_reserva" value="{{ reserva.id_reserva }}">
 
                 <p><strong>Sala:</strong> {{ reserva.nombre_sala }} ({{ reserva.edificio }})</p>
 
@@ -36,7 +38,7 @@
                 </div>
 
                 <label class="form-label fw-bold">Participantes</label>
-                <select name="participantes" multiple class="form-select" size="8">
+                <select name="participantes[]" multiple class="form-select" size="8">
 
                     {% for p in participantes %}
                         <option value="{{ p.ci }}"

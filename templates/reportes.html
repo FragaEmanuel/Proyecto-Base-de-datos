@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <div class="container mt-4">
 
@@ -9,133 +11,343 @@
         <i class="fas fa-chart-line"></i> Reportes del Sistema
     </h1>
 
-    <div class="row mb-4">
-
-        <div class="col-md-4">
-            <div class="card shadow-sm text-center">
-                <div class="card-body">
-                    <i class="fas fa-users fa-2x text-primary"></i>
-                    <h5 class="mt-3">Total Asistencias</h5>
-                    <h3 class="text-success">{{ asistencia.asistencias }}</h3>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card shadow-sm text-center">
-                <div class="card-body">
-                    <i class="fas fa-user-times fa-2x text-danger"></i>
-                    <h5 class="mt-3">Total Inasistencias</h5>
-                    <h3 class="text-danger">{{ asistencia.inasistencias }}</h3>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="card mb-4 shadow-sm">
+    <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
-            <i class="fas fa-door-open"></i> Salas más reservadas
+            <h5 class="mb-0"><i class="fas fa-door-open"></i> Salas más reservadas</h5>
         </div>
         <div class="card-body">
-            <table class="table table-striped align-middle">
+            {% if salas_mas_reservadas %}
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Sala</th>
                         <th>Edificio</th>
-                        <th>Reservas</th>
+                        <th>Total Reservas</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in salas_pop %}
+                    {% for r in salas_mas_reservadas %}
                     <tr>
-                        <td>{{ s.nombre_sala }}</td>
-                        <td>{{ s.edificio }}</td>
-                        <td><strong>{{ s.total }}</strong></td>
+                        <td>{{ r.nombre_sala }}</td>
+                        <td>{{ r.edificio }}</td>
+                        <td>{{ r.total_reservas }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
         </div>
     </div>
 
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-warning">
-            <i class="fas fa-clock"></i> Turnos más demandados
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-clock"></i> Turnos más demandados</h5>
         </div>
         <div class="card-body">
-            <table class="table table-striped align-middle">
+            {% if turnos_mas_demandados %}
+            <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Turno</th>
                         <th>Inicio</th>
                         <th>Fin</th>
                         <th>Total Reservas</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for t in turnos_pop %}
+                    {% for t in turnos_mas_demandados %}
                     <tr>
+                        <td>#{{ t.id_turno }}</td>
                         <td>{{ t.hora_inicio }}</td>
                         <td>{{ t.hora_fin }}</td>
-                        <td><strong>{{ t.total }}</strong></td>
+                        <td>{{ t.total_reservas }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
         </div>
     </div>
 
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-success text-white">
-            <i class="fas fa-user-graduate"></i> Participantes con más reservas
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-users"></i> Promedio de participantes por sala</h5>
         </div>
         <div class="card-body">
-            <table class="table table-striped align-middle">
+            {% if promedio_participantes %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Sala</th>
+                        <th>Edificio</th>
+                        <th>Promedio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in promedio_participantes %}
+                    <tr>
+                        <td>{{ p.nombre_sala }}</td>
+                        <td>{{ p.edificio }}</td>
+                        <td>{{ p.promedio_participantes }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="fas fa-university"></i> Reservas por Carrera y Facultad</h5>
+        </div>
+        <div class="card-body">
+            {% if reservas_por_carrera %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Facultad</th>
+                        <th>Carrera</th>
+                        <th>Total Reservas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in reservas_por_carrera %}
+                    <tr>
+                        <td>{{ c.facultad }}</td>
+                        <td>{{ c.carrera }}</td>
+                        <td>{{ c.cantidad_reservas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay datos disponibles.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-percent"></i> Porcentaje de ocupación por sala</h5>
+        </div>
+        <div class="card-body">
+            {% if porcentaje_ocupacion %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Edificio</th>
+                        <th>Sala</th>
+                        <th>Capacidad</th>
+                        <th>Total Reservas</th>
+                        <th>Ocupación (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in porcentaje_ocupacion %}
+                    <tr>
+                        <td>{{ o.edificio }}</td>
+                        <td>{{ o.nombre_sala }}</td>
+                        <td>{{ o.capacidad }}</td>
+                        <td>{{ o.reservas }}</td>
+                        <td>{{ o.porcentaje_ocupacion }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-user-check"></i> Reservas y asistencias por rol y tipo</h5>
+        </div>
+        <div class="card-body">
+            {% if reservas_asistencias %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Rol</th>
+                        <th>Tipo Programa</th>
+                        <th>Total Reservas</th>
+                        <th>Total Asistencias</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reservas_asistencias %}
+                    <tr>
+                        <td>{{ r.rol_participante }}</td>
+                        <td>{{ r.tipo_programa }}</td>
+                        <td>{{ r.total_reservas }}</td>
+                        <td>{{ r.total_asistencias }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-user-slash"></i> Sanciones por rol y tipo</h5>
+        </div>
+        <div class="card-body">
+            {% if sanciones_por_tipo %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Rol</th>
+                        <th>Tipo</th>
+                        <th>Total Sanciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sanciones_por_tipo %}
+                    <tr>
+                        <td>{{ s.rol_participante }}</td>
+                        <td>{{ s.tipo_programa }}</td>
+                        <td>{{ s.cantidad_sanciones }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Porcentaje de reservas por estado</h5>
+        </div>
+        <div class="card-body">
+            {% if porcentaje_reservas %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Cantidad</th>
+                        <th>Porcentaje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in porcentaje_reservas %}
+                    <tr>
+                        <td>{{ e.estado }}</td>
+                        <td>{{ e.cantidad }}</td>
+                        <td>{{ e.porcentaje }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-user-times"></i> Ranking de participantes con más faltas</h5>
+        </div>
+        <div class="card-body">
+            {% if faltas_participantes %}
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>CI</th>
                         <th>Nombre</th>
-                        <th>Reservas</th>
+                        <th>Faltas</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in partic_reservas %}
+                    {% for f in faltas_participantes %}
                     <tr>
-                        <td>{{ p.ci }}</td>
-                        <td>{{ p.nombre }} {{ p.apellido }}</td>
-                        <td><strong>{{ p.total }}</strong></td>
+                        <td>{{ f.ci }}</td>
+                        <td>{{ f.nombre }} {{ f.apellido }}</td>
+                        <td>{{ f.faltas }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p>No se registran faltas.</p>
+            {% endif %}
         </div>
     </div>
 
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-secondary text-white">
-            <i class="fas fa-chart-pie"></i> Ocupación por Sala
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-business-time"></i> Ocupación por turno</h5>
         </div>
         <div class="card-body">
-            <table class="table table-striped align-middle">
+            {% if ocupacion_turnos %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Inicio</th>
+                        <th>Fin</th>
+                        <th>Reservas</th>
+                        <th>Ocupación (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in ocupacion_turnos %}
+                    <tr>
+                        <td>{{ o.hora_inicio }}</td>
+                        <td>{{ o.hora_fin }}</td>
+                        <td>{{ o.reservas }}</td>
+                        <td>{{ o.porcentaje }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Salas con ocupación crítica (+80%)</h5>
+        </div>
+        <div class="card-body">
+            {% if salas_criticas %}
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Sala</th>
                         <th>Edificio</th>
                         <th>Capacidad</th>
                         <th>Reservas</th>
+                        <th>Ocupación (%)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in ocupacion %}
+                    {% for sc in salas_criticas %}
                     <tr>
-                        <td>{{ s.nombre_sala }}</td>
-                        <td>{{ s.edificio }}</td>
-                        <td>{{ s.capacidad }}</td>
-                        <td><strong>{{ s.reservas }}</strong></td>
+                        <td>{{ sc.nombre_sala }}</td>
+                        <td>{{ sc.edificio }}</td>
+                        <td>{{ sc.capacidad }}</td>
+                        <td>{{ sc.reservas }}</td>
+                        <td><strong>{{ sc.ocupacion }}%</strong></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p>Ninguna sala supera el 80% de ocupación.</p>
+            {% endif %}
         </div>
     </div>
 
