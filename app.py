@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from database import Database
-import datetime
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
+
 
 app = Flask(__name__)
 db = Database()
@@ -291,6 +293,64 @@ def cancelar_reserva(id_reserva):
     db.execute_insert(query, (id_reserva,))
     return redirect(url_for('reservas'))
 
+
+# ABM de Sanciones
+
+# Listar Sanciones
+@app.route('/sanciones')
+def sanciones():
+    
+    # eliminar vencidas antes de mostrar
+    db.execute_insert("""
+        DELETE FROM sancion_participante
+        WHERE fecha_fin < CURDATE()
+    """)
+    
+    query = """
+        SELECT 
+            s.id_sancion,
+            s.ci_participante,
+            s.fecha_inicio,
+            s.fecha_fin,
+            p.nombre,
+            p.apellido
+        FROM sancion_participante s
+        JOIN participante p ON s.ci_participante = p.ci
+        ORDER BY s.fecha_inicio DESC
+    """
+    
+    sanciones = db.execute_query(query)
+    current_date = date.today()
+
+    return render_template('sanciones.html', sanciones=sanciones, current_date=current_date)
+
+
+@app.route('/sancion/nueva', methods=['GET', 'POST'])
+def sancion_nueva():
+    if request.method == 'POST':
+        ci_participante = request.form['ci_participante']
+        fecha_inicio = request.form['fecha_inicio']
+
+        fecha_inicio = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+        fecha_fin = fecha_inicio + relativedelta(months=2)
+
+
+        query = """
+            INSERT INTO sancion_participante (ci_participante, fecha_inicio, fecha_fin)
+            VALUES (%s, %s, %s)
+        """
+        db.execute_insert(query, (ci_participante, fecha_inicio, fecha_fin))
+
+        return redirect(url_for('sanciones'))
+
+    participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
+    return render_template('nueva_sancion.html', participantes=participantes)
+
+@app.route('/sancion/eliminar/<int:id_sancion>', methods=['POST'])
+def eliminar_sancion(id_sancion):
+    query = "DELETE FROM sancion_participante WHERE id_sancion = %s"
+    db.execute_insert(query, (id_sancion,))
+    return redirect(url_for('sanciones'))
 
 
 # Reportes

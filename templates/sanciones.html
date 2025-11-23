@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<style>
+    .card {
+        transition: transform 0.2s;
+        margin-bottom: 20px;
+    }
+    .card:hover { transform: translateY(-5px); }
+    .sancion-activa { border-left: 4px solid #dc3545; }
+    .sancion-expirada { border-left: 4px solid #6c757d; }
+    .badge-activa { background-color: #dc3545; }
+    .badge-expirada { background-color: #6c757d; }
+</style>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-user-slash"></i> Gestión de Sanciones</h1>
+        <a href="{{ url_for('sancion_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Sanción
+        </a>
+    </div>
+
+    <!-- Buscador -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <label class="form-label"><i class="fas fa-search"></i> Buscar por nombre o CI:</label>
+            <input type="text" class="form-control" id="buscadorSancion" placeholder="Ej: Juan / 12345678" />
+        </div>
+    </div>
+
+    <div class="row" id="listaSanciones">
+
+        {% for s in sanciones %}
+        <div class="col-md-6 col-lg-4 sancion-item sancion-{{ 'activa' if s.fecha_fin >= current_date else 'expirada' }}"
+             data-nombre="{{ (s.nombre ~ ' ' ~ s.apellido)|lower }}"
+             data-ci="{{ s.ci_participante }}">
+
+            <div class="card shadow-sm h-100">
+
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-slash"></i> Sanción #{{ s.id_sancion }}
+                    </h5>
+                    <span class="badge text-white badge-{{ 'activa' if s.fecha_fin >= current_date else 'expirada' }}">
+                        {{ 'Activa' if s.fecha_fin >= current_date else 'Expirada' }}
+                    </span>
+                </div>
+
+                <div class="card-body">
+
+                    <p><strong><i class="fas fa-id-card"></i> Participante:</strong><br>
+                        ({{ s.ci_participante }}) {{ s.nombre }} {{ s.apellido }} 
+                    </p>
+
+                    <p><strong><i class="fas fa-calendar-day"></i> Inicio:</strong> {{ s.fecha_inicio }}</p>
+                    <p><strong><i class="fas fa-calendar-check"></i> Fin:</strong> {{ s.fecha_fin }}</p>
+
+                    <div class="d-flex gap-2 mt-3">
+
+                        <form action="{{ url_for('eliminar_sancion', id_sancion=s.id_sancion) }}"
+                              method="POST"
+                              onsubmit="return confirm('¿Seguro que deseas eliminar esta sanción?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+</div>
+
+<script>
+    const buscador = document.getElementById('buscadorSancion');
+    buscador.addEventListener('input', filtrarSanciones);
+
+    function filtrarSanciones() {
+        const texto = buscador.value.toLowerCase();
+
+        document.querySelectorAll('.sancion-item').forEach(card => {
+            const nombre = card.dataset.nombre;
+            const ci = card.dataset.ci;
+
+            card.style.display = (nombre.includes(texto) || ci.includes(texto))
+                ? 'block'
+                : 'none';
+        });
+    }
+</script>
+
+{% endblock %}
