@@ -292,6 +292,58 @@ def cancelar_reserva(id_reserva):
     return redirect(url_for('reservas'))
 
 
+# ABM de Sanciones
+
+# Listar Sanciones
+@app.route('/sanciones')
+def sanciones():
+    query = """
+        SELECT 
+            s.id_sancion,
+            s.ci_participante,
+            s.fecha_inicio,
+            s.fecha_fin,
+            s.motivo,
+            p.nombre,
+            p.apellido
+        FROM sancion_participante s
+        JOIN participante p ON s.ci_participante = p.ci
+        ORDER BY s.fecha_inicio DESC
+    """
+    
+    sanciones = db.execute_query(query)
+    current_date = datetime.date.today()
+
+    return render_template('sanciones.html', sanciones=sanciones, current_date=current_date)
+
+
+@app.route('/sancion/nueva', methods=['GET', 'POST'])
+def sancion_nueva():
+    if request.method == 'POST':
+        ci_participante = request.form['ci_participante']
+        fecha_inicio = request.form['fecha_inicio']
+        fecha_fin = request.form['fecha_fin']
+        motivo = request.form['motivo']
+
+        query = """
+            INSERT INTO sancion_participante (ci_participante, fecha_inicio, fecha_fin, motivo)
+            VALUES (%s, %s, %s, %s)
+        """
+        db.execute_insert(query, (ci_participante, fecha_inicio, fecha_fin, motivo))
+        
+        return redirect(url_for('sanciones'))
+
+    # Para cargar participantes en el formulario (si lo necesitas)
+    participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
+    return render_template('nueva_sancion.html', participantes=participantes)
+
+
+@app.route('/sancion/eliminar/<int:id_sancion>', methods=['POST'])
+def eliminar_sancion(id_sancion):
+    query = "DELETE FROM sancion_participante WHERE id_sancion = %s"
+    db.execute_insert(query, (id_sancion,))
+    return redirect(url_for('sanciones'))
+
 
 # Reportes
 @app.route('/reportes')
