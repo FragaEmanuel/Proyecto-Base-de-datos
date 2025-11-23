@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<style>
+    .card {
+        transition: transform 0.2s;
+        margin-bottom: 20px;
+    }
+    .card:hover { transform: translateY(-5px); }
+
+    .sancion-activa { border-left: 4px solid #dc3545; }
+    .sancion-expirada { border-left: 4px solid #6c757d; }
+
+    .badge-activa { background-color: #dc3545; }
+    .badge-expirada { background-color: #6c757d; }
+</style>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-user-slash"></i> Gestión de Sanciones</h1>
+        <a href="{{ url_for('sancion_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Sanción
+        </a>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <label class="form-label">
+                <i class="fas fa-search"></i> Buscar por nombre o CI:
+            </label>
+            <input type="text"
+                   class="form-control"
+                   id="buscadorSancion"
+                   placeholder="Ej: Juan / 12345678" />
+        </div>
+    </div>
+
+    <h3 class="mb-3">Sanciones Activas</h3>
+
+    <div class="row" id="listaActivas">
+        {% if sanciones_activas %}
+            {% for s in sanciones_activas %}
+            <div class="col-md-6 col-lg-4 sancion-item sancion-activa"
+                 data-nombre="{{ (s.nombre ~ ' ' ~ s.apellido)|lower }}"
+                 data-ci="{{ s.ci_participante }}">
+
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-ban"></i> Sanción #{{ s.id_sancion }}
+                        </h5>
+                        <span class="badge text-white badge-activa">Activa</span>
+                    </div>
+
+                    <div class="card-body">
+                        <p>
+                            <strong><i class="fas fa-id-card"></i> Participante:</strong><br>
+                            ({{ s.ci_participante }}) {{ s.nombre }} {{ s.apellido }}
+                        </p>
+
+                        <p><strong><i class="fas fa-calendar-day"></i> Inicio:</strong> {{ s.fecha_inicio }}</p>
+                        <p><strong><i class="fas fa-calendar-check"></i> Fin:</strong> {{ s.fecha_fin }}</p>
+
+                        <div class="d-flex gap-2 mt-3">
+                            <a href="{{ url_for('sancion_editar', id_sancion=s.id_sancion) }}"
+                               class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-edit"></i> Editar
+                            </a>
+
+                            <form action="{{ url_for('eliminar_sancion', id_sancion=s.id_sancion) }}"
+                                  method="POST"
+                                  onsubmit="return confirm('¿Seguro que deseas eliminar esta sanción?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No hay sanciones activas.</p>
+        {% endif %}
+    </div>
+
+    <hr class="my-4">
+
+    <button class="btn btn-secondary mb-3" id="btnToggleVencidas">
+        <i class="fas fa-history"></i> Mostrar sanciones vencidas
+    </button>
+
+    <div id="vencidasContainer" style="display:none;">
+
+        <h3 class="mt-3 mb-3">Sanciones Vencidas</h3>
+
+        <div class="row" id="listaVencidas">
+            {% if sanciones_vencidas %}
+                {% for s in sanciones_vencidas %}
+                <div class="col-md-6 col-lg-4 sancion-item sancion-expirada"
+                     data-nombre="{{ (s.nombre ~ ' ' ~ s.apellido)|lower }}"
+                     data-ci="{{ s.ci_participante }}">
+
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-clock"></i> Sanción #{{ s.id_sancion }}
+                            </h5>
+                            <span class="badge text-white badge-expirada">Expirada</span>
+                        </div>
+
+                        <div class="card-body">
+                            <p>
+                                <strong><i class="fas fa-id-card"></i> Participante:</strong><br>
+                                ({{ s.ci_participante }}) {{ s.nombre }} {{ s.apellido }}
+                            </p>
+
+                            <p><strong><i class="fas fa-calendar-day"></i> Inicio:</strong> {{ s.fecha_inicio }}</p>
+                            <p><strong><i class="fas fa-calendar-check"></i> Fin:</strong> {{ s.fecha_fin }}</p>
+                        </div>
+                    </div>
+
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No hay sanciones vencidas.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    const buscador = document.getElementById('buscadorSancion');
+    buscador.addEventListener('input', () => {
+        const texto = buscador.value.toLowerCase();
+        document.querySelectorAll('.sancion-item').forEach(card => {
+            const nombre = card.dataset.nombre;
+            const ci = card.dataset.ci;
+            card.style.display = (nombre.includes(texto) || ci.includes(texto))
+                ? 'block'
+                : 'none';
+        });
+    });
+
+    const btn = document.getElementById("btnToggleVencidas");
+    const cont = document.getElementById("vencidasContainer");
+
+    btn.addEventListener("click", () => {
+        const visible = cont.style.display === "block";
+        cont.style.display = visible ? "none" : "block";
+        btn.innerHTML = visible
+            ? '<i class="fas fa-history"></i> Mostrar sanciones vencidas'
+            : '<i class="fas fa-eye-slash"></i> Ocultar sanciones vencidas';
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2><i class="fas fa-clipboard-check"></i> Asistencia de la Reserva #{{ reserva.id_reserva }}</h2>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+
+            <p><strong>Sala:</strong> {{ reserva.nombre_sala }} ({{ reserva.edificio }})</p>
+            <p><strong>Fecha:</strong> {{ reserva.fecha }}</p>
+            <p><strong>Turno:</strong> {{ reserva.hora_inicio }} - {{ reserva.hora_fin }}</p>
+
+            <hr>
+
+            <form method="POST">
+                <h5>Participantes</h5>
+
+                {% for p in participantes %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" 
+                           type="checkbox" 
+                           name="asistencia" 
+                           value="{{ p.ci_participante }}"
+                           {% if p.asistencia == 1 %}checked{% endif %}>
+                    <label class="form-check-label">
+                        {{ p.nombre }} {{ p.apellido }} ({{ p.ci_participante }})
+                    </label>
+                </div>
+                {% endfor %}
+
+                <div class="mt-3">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-save"></i> Guardar Asistencia
+                    </button>
+
+                    <a href="{{ url_for('reservas') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
