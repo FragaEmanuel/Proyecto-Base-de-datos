@@ -263,80 +263,96 @@ def reservas():
 @app.route('/reserva/nueva', methods=['GET', 'POST'])
 def nueva_reserva():
     if request.method == 'POST':
-
-        sala = request.form['sala']
+        # Tomar datos del formulario
+        nombre_sala = request.form['sala']
         edificio = request.form['edificio']
         fecha = request.form['fecha']
         id_turno = request.form['turno']
-        participantes = request.form.getlist('participantes[]')
 
-        # Info de sala
-        info = db.execute_query("""
-            SELECT capacidad, tipo_sala
-            FROM sala
-            WHERE nombre_sala=%s AND edificio=%s
-        """, (sala, edificio))[0]
+        participantes = request.form.getlist('participantes')
 
-        capacidad = info["capacidad"]
-        tipo_sala = info["tipo_sala"]
-
-        # Validaciones generales
-        if len(participantes) > capacidad:
-            flash("La sala no tiene capacidad suficiente.", "danger")
+        if not participantes:
+            flash("Debe seleccionar al menos un participante.", "danger")
             return redirect(url_for('nueva_reserva'))
 
-        if sala_ocupada(sala, edificio, fecha, id_turno):
-            flash("La sala ya está reservada en esa fecha y turno.", "danger")
+        
+
+        # Validaciones
+        
+        from validaciones import (
+            validar_tipo_sala, esta_sancionado,
+            sala_ocupada, tiene_solapamiento,
+            horas_reservadas_en_dia, reservas_activas_en_semana, validar_capacidad
+        )
+
+        if not validar_capacidad(nombre_sala, edificio, participantes):
+            flash(f"Capacidad de la sala insuficiente", "danger")
             return redirect(url_for('nueva_reserva'))
 
-        # Validaciones por participante
         for ci in participantes:
-            if esta_sancionado(ci, fecha):
-                flash(f"El participante {ci} está sancionado y no puede reservar.", "danger")
-                return redirect(url_for('nueva_reserva'))
+
+            # Tipo de sala
+            tipo_sala = db.execute_query("""
+                SELECT tipo_sala
+                FROM sala
+                WHERE nombre_sala = %s AND edificio = %s
+            """, (nombre_sala, edificio))[0]['tipo_sala']
 
             if not validar_tipo_sala(ci, tipo_sala):
                 flash(f"El participante {ci} no tiene permiso para reservar una sala de tipo {tipo_sala}.", "danger")
                 return redirect(url_for('nueva_reserva'))
 
+            # Sanciones
+            if esta_sancionado(ci, fecha):
+                flash(f"El participante {ci} está sancionado en esa fecha.", "danger")
+                return redirect(url_for('nueva_reserva'))
+
+            # Solapamiento
             if tiene_solapamiento(ci, fecha, id_turno):
                 flash(f"El participante {ci} ya tiene una reserva en ese turno.", "danger")
                 return redirect(url_for('nueva_reserva'))
 
+            # Máximo de bloques por día
             if horas_reservadas_en_dia(ci, fecha, edificio) >= 2:
-                flash(f"El participante {ci} ya alcanzó su máximo diario de reservas para este edificio.", "danger")
+                flash(f"El participante {ci} ya tiene 2 reservas en ese edificio ese día.", "danger")
                 return redirect(url_for('nueva_reserva'))
 
+            # Máximo semanal
             if reservas_activas_en_semana(ci, fecha) >= 3:
-                flash(f"El participante {ci} ya alcanzó su máximo semanal de reservas activas.", "danger")
+                flash(f"El participante {ci} ya tiene 3 reservas activas esa semana.", "danger")
                 return redirect(url_for('nueva_reserva'))
+            
+        
 
-        # Crear reserva después de chequeos
-        reserva_id = db.execute_insert("""
+        if sala_ocupada(nombre_sala, edificio, fecha, id_turno):
+            flash("La sala ya está ocupada en ese horario.", "danger")
+            return redirect(url_for('nueva_reserva'))
+
+        # Crear la reserva
+        query = """
             INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado)
             VALUES (%s, %s, %s, %s, 'activa')
-        """, (sala, edificio, fecha, id_turno))
+        """
+        reserva_id = db.execute_insert(query, (nombre_sala, edificio, fecha, id_turno))
 
-        # Asociar a los participantes
+        # Guardar los participantes asociados
         for ci in participantes:
             db.execute_insert("""
                 INSERT INTO reserva_participante (id_reserva, ci_participante)
                 VALUES (%s, %s)
             """, (reserva_id, ci))
 
-        flash("La reserva fue creada correctamente.", "success")
+        flash("Reserva creada correctamente.", "success")
         return redirect(url_for('reservas'))
 
-    salas = db.execute_query("SELECT nombre_sala, edificio, capacidad FROM sala")
+    salas = db.execute_query("SELECT nombre_sala, edificio, capacidad, tipo_sala FROM sala")
     turnos = db.execute_query("SELECT id_turno, hora_inicio, hora_fin FROM turno")
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
 
-    return render_template(
-        'nueva_reserva.html',
-        salas=salas,
-        turnos=turnos,
-        participantes=participantes
-    )
+    return render_template('nueva_reserva.html',
+                           salas=salas,
+                           turnos=turnos,
+                           participantes=participantes)
     
 @app.route('/reserva/cancelar/<int:id_reserva>', methods=['POST'])
 def cancelar_reserva(id_reserva):

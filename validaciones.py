@@ -11,27 +11,34 @@ def obtener_info_usuario(ci):
         WHERE ppa.ci_participante = %s
         LIMIT 1
     """
-    res = db.execute_query(query, (ci,))
-    return res[0] if res else None
+
+    return db.execute_query(query, (ci,))
 
 def validar_tipo_sala(ci, tipo_sala):
-    info = obtener_info_usuario(ci)
-    if not info:
-        return False
 
-    tipo = info["tipo"] 
-    rol = info["rol"]        
-
+    # Sala libre -> todos pueden reservar
     if tipo_sala == "libre":
         return True
 
-    if tipo_sala == "posgrado" and (tipo == "posgrado" or rol == "docente"):
-        return True
+    programas = obtener_info_usuario(ci)
 
-    if tipo_sala == "docente" and rol == "docente":
-        return True
+    if not programas:
+        return False
+
+    # Listas útiles
+    tipos = [p["tipo"].lower() for p in programas]
+    roles = [p["rol"].lower() for p in programas]
+
+    # Sala Docente -> solo docentes, sin importar el tipo de programa
+    if tipo_sala == "docente":
+        return "docente" in roles
+
+    # Sala Posgrado -> usuarios pertenecientes a programas de posgrado (alumno o docente)
+    if tipo_sala == "posgrado":
+        return "posgrado" in tipos
 
     return False
+
 
 def esta_sancionado(ci, fecha):
     query = """
@@ -41,8 +48,15 @@ def esta_sancionado(ci, fecha):
         AND fecha_inicio <= %s
         AND fecha_fin >= %s
     """
-    result = db.execute_query(query, (ci, fecha, fecha))[0]["total"]
-    return result > 0
+    
+    result = db.execute_query(query, (ci, fecha, fecha))
+
+    # Si la consulta falló o no devolvió filas
+    if not result or "total" not in result[0]:
+        return False
+
+    return result[0]["total"] > 0
+
 
 def sala_ocupada(sala, edificio, fecha, turno):
     query = """
@@ -119,3 +133,26 @@ def tiene_solapamiento_editando(ci, fecha, turno, id_reserva):
     """
     res = db.execute_query(query, (ci, fecha, turno, id_reserva))
     return res[0]["total"] > 0
+
+def validar_capacidad(nombre_sala, edificio, participantes):
+    """
+    Retorna True si la cantidad de participantes es <= capacidad de la sala.
+    Retorna False si excede.
+    """
+
+    query = """
+        SELECT capacidad
+        FROM sala
+        WHERE nombre_sala = %s AND edificio = %s
+        LIMIT 1
+    """
+
+    res = db.execute_query(query, (nombre_sala, edificio))
+
+    if not res:
+        return False  # no existe la sala → no valida
+
+    capacidad = res[0]["capacidad"]
+
+    # Validación directa
+    return len(participantes) <= capacidad
