@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from database import Database
-import datetime
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
+
 
 app = Flask(__name__)
 db = Database()
@@ -297,13 +299,19 @@ def cancelar_reserva(id_reserva):
 # Listar Sanciones
 @app.route('/sanciones')
 def sanciones():
+    
+    # eliminar vencidas antes de mostrar
+    db.execute_insert("""
+        DELETE FROM sancion_participante
+        WHERE fecha_fin < CURDATE()
+    """)
+    
     query = """
         SELECT 
             s.id_sancion,
             s.ci_participante,
             s.fecha_inicio,
             s.fecha_fin,
-            s.motivo,
             p.nombre,
             p.apellido
         FROM sancion_participante s
@@ -312,7 +320,7 @@ def sanciones():
     """
     
     sanciones = db.execute_query(query)
-    current_date = datetime.date.today()
+    current_date = date.today()
 
     return render_template('sanciones.html', sanciones=sanciones, current_date=current_date)
 
@@ -322,21 +330,21 @@ def sancion_nueva():
     if request.method == 'POST':
         ci_participante = request.form['ci_participante']
         fecha_inicio = request.form['fecha_inicio']
-        fecha_fin = request.form['fecha_fin']
-        motivo = request.form['motivo']
+
+        fecha_inicio = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+        fecha_fin = fecha_inicio + relativedelta(months=2)
+
 
         query = """
-            INSERT INTO sancion_participante (ci_participante, fecha_inicio, fecha_fin, motivo)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO sancion_participante (ci_participante, fecha_inicio, fecha_fin)
+            VALUES (%s, %s, %s)
         """
-        db.execute_insert(query, (ci_participante, fecha_inicio, fecha_fin, motivo))
-        
+        db.execute_insert(query, (ci_participante, fecha_inicio, fecha_fin))
+
         return redirect(url_for('sanciones'))
 
-    # Para cargar participantes en el formulario (si lo necesitas)
     participantes = db.execute_query("SELECT ci, nombre, apellido FROM participante")
     return render_template('nueva_sancion.html', participantes=participantes)
-
 
 @app.route('/sancion/eliminar/<int:id_sancion>', methods=['POST'])
 def eliminar_sancion(id_sancion):
