@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<div class="container mt-4">
+
+    <h1 class="mb-4">
+        <i class="fas fa-user-pen"></i> Editar Sanción
+    </h1>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <p><strong>Participante:</strong>
+                {{ sancion.nombre }} {{ sancion.apellido }} ({{ sancion.ci_participante }})
+            </p>
+
+            <form method="POST">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-calendar-day"></i> Nueva Fecha de Inicio
+                        </label>
+                        <input type="date"
+                               name="fecha_inicio"
+                               class="form-control"
+                               value="{{ sancion.fecha_inicio }}"
+                               required>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    La fecha de fin se actualizará automáticamente a <strong>2 meses</strong> después de la fecha de inicio.
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+
+                    <a href="{{ url_for('sanciones') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

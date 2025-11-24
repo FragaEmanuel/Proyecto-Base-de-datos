@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<style>
+    .card {
+        transition: transform 0.2s;
+        margin-bottom: 20px;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    .sala-libre { border-left: 4px solid #28a745; }
+    .sala-posgrado { border-left: 4px solid #007bff; }
+    .sala-docente { border-left: 4px solid #6f42c1; }
+    .badge-capacidad { background-color: #17a2b8; }
+    .bg-purple { background-color: #6f42c1; }
+</style>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-door-open"></i> Gestión de Salas</h1>
+
+        <a href="{{ url_for('nueva_sala') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Sala
+        </a>
+    </div>
+
+    <div class="mb-3">
+        <span class="badge bg-success me-1">Libre</span>
+        <span class="badge bg-primary me-1">Posgrado</span>
+        <span class="badge bg-purple">Docente</span>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <div class="row">
+
+                <div class="col-md-4">
+                    <label for="filtroEdificio" class="form-label">Filtrar por Edificio:</label>
+                    <select class="form-select" id="filtroEdificio">
+                        <option value="">Todos los edificios</option>
+                        {% set edificios = [] %}
+                        {% for sala in salas %}
+                            {% if sala.edificio not in edificios %}
+                                {% set _ = edificios.append(sala.edificio) %}
+                                <option value="{{ sala.edificio }}">{{ sala.edificio }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="filtroTipo" class="form-label">Filtrar por Tipo:</label>
+                    <select class="form-select" id="filtroTipo">
+                        <option value="">Todos los tipos</option>
+                        <option value="libre">Libre</option>
+                        <option value="posgrado">Posgrado</option>
+                        <option value="docente">Docente</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="filtroCapacidad" class="form-label">Capacidad mínima:</label>
+                    <input type="number" class="form-control" id="filtroCapacidad" placeholder="Ej: 10" min="0">
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="listaSalas">
+
+        {% for sala in salas %}
+        <div class="col-md-6 col-lg-4 sala-item"
+             data-edificio="{{ sala.edificio }}"
+             data-tipo="{{ sala.tipo_sala }}"
+             data-capacidad="{{ sala.capacidad }}">
+
+            <div class="card h-100 sala-{{ sala.tipo_sala }} shadow-sm">
+
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-door-open"></i> {{ sala.nombre_sala }}
+                    </h5>
+
+                    <span class="badge 
+                        {% if sala.tipo_sala == 'libre' %}bg-success
+                        {% elif sala.tipo_sala == 'posgrado' %}bg-primary
+                        {% else %}bg-purple{% endif %}">
+                        {{ sala.tipo_sala | title }}
+                    </span>
+                </div>
+
+                <div class="card-body">
+                    <p class="card-text">
+                        <strong><i class="fas fa-building"></i> Edificio:</strong><br>
+                        {{ sala.edificio }}
+                    </p>
+
+                    <p class="card-text">
+                        <strong><i class="fas fa-map-marker-alt"></i> Dirección:</strong><br>
+                        {{ sala.direccion }}, {{ sala.departamento }}
+                    </p>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge badge-capacidad text-white">
+                            <i class="fas fa-users"></i> Capacidad: {{ sala.capacidad }}
+                        </span>
+
+                        <a href="/reserva/nueva?sala={{ sala.nombre_sala|urlencode }}&edificio={{ sala.edificio|urlencode }}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-calendar-plus"></i> Reservar
+                        </a>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <a href="{{ url_for('editar_sala', nombre_sala=sala.nombre_sala, edificio=sala.edificio) }}"
+                           class="btn btn-sm btn-outline-warning">
+                           <i class="fas fa-edit"></i> Editar
+                        </a>
+
+                        <form action="{{ url_for('eliminar_sala', nombre_sala=sala.nombre_sala, edificio=sala.edificio) }}"
+                              method="POST"
+                              onsubmit="return confirm('¿Seguro que deseas eliminar esta sala?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+    {% if not salas %}
+    <div class="alert alert-warning text-center mt-4">
+        <i class="fas fa-exclamation-triangle"></i> No hay salas registradas en el sistema.
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    document.getElementById('filtroEdificio').addEventListener('change', filtrarSalas);
+    document.getElementById('filtroTipo').addEventListener('change', filtrarSalas);
+    document.getElementById('filtroCapacidad').addEventListener('input', filtrarSalas);
+
+    function filtrarSalas() {
+        const edificio = document.getElementById('filtroEdificio').value.toLowerCase();
+        const tipo = document.getElementById('filtroTipo').value;
+        const capacidad = parseInt(document.getElementById('filtroCapacidad').value) || 0;
+
+        const salas = document.querySelectorAll('.sala-item');
+
+        salas.forEach(sala => {
+            const salaEdificio = sala.dataset.edificio.toLowerCase();
+            const salaTipo = sala.dataset.tipo;
+            const salaCapacidad = parseInt(sala.dataset.capacidad);
+
+            const muestraEdificio = !edificio || salaEdificio.includes(edificio);
+            const muestraTipo = !tipo || salaTipo === tipo;
+            const muestraCapacidad = salaCapacidad >= capacidad;
+
+            sala.style.display = (muestraEdificio && muestraTipo && muestraCapacidad)
+                ? 'block'
+                : 'none';
+        });
+    }
+
+    filtrarSalas();
+</script>
+
+{% endblock %}

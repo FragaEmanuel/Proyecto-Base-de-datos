@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h1 class="mb-4"><i class="fas fa-edit"></i> Editar Reserva</h1>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <form method="POST" action="{{ url_for('editar_reserva', id_reserva=reserva.id_reserva) }}">
+
+                <input type="hidden" name="id_reserva" value="{{ reserva.id_reserva }}">
+
+                <p><strong>Sala:</strong> {{ reserva.nombre_sala }} ({{ reserva.edificio }})</p>
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Fecha</label>
+                        <input type="date" name="fecha"
+                               class="form-control"
+                               value="{{ reserva.fecha }}">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Turno</label>
+                        <select name="turno" class="form-select">
+                            {% for t in turnos %}
+                            <option value="{{ t.id_turno }}"
+                                {% if t.id_turno == reserva.id_turno %} selected {% endif %}>
+                                {{ t.hora_inicio }} - {{ t.hora_fin }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <label class="form-label fw-bold">Participantes</label>
+                <select name="participantes[]" multiple class="form-select" size="8">
+
+                    {% for p in participantes %}
+                        <option value="{{ p.ci }}"
+                            {% if p.ci in participantes_actuales %} selected {% endif %}>
+                            {{ p.nombre }} {{ p.apellido }} ({{ p.ci }})
+                        </option>
+                    {% endfor %}
+
+                </select>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                    <a href="{{ url_for('reservas') }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
